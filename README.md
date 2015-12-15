@@ -14,5 +14,4 @@ Then run the script like this:
 Where BOARD is just the board's letters, e.g. a for /a/ (Anime & Manga).
 ./4get.sh a b c ...
 
-Fire and 4get!
 Cancel it with CTRL-C.
