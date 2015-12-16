@@ -129,32 +129,45 @@ if [ $verbose == "1" ]; then echo -e "$color_script$(du -sh $download_dir | cut 
 # download catalog
 while :
 do
+  if [ $verbose == "1" ]; then echo -en "$color_message""Downloading board index ..."; fi
   catalog=$(curl -A "$user_agent" -f -s "$http_string_text://boards.4chan.org/$board/catalog")
   if [[ ${#catalog} -lt 1000 ]]; then
     echo -en "\r$color_message""Could not find the board /$board/. Retrying ..."
     sleep 5
     echo -en "\033[2K\r" # clear whole line
   else
-    # analyze catalog
-    unset -v thread_numbers
-    unset -v picture_numbers
-    thread_numbers=($(echo "$catalog" | grep -o '[0-9][0-9]*\":' | rev | cut -c3- | rev))
-    picture_numbers=($(echo "$catalog" | grep -Po '\"i\":.*?,' | cut -c5- | rev | cut -c2- | rev))
-    titles="$(echo "$catalog" | grep -Po 'teaser\":\".*?\"' | cut -c10- | rev | cut -c2- | rev | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g' -e 's/\\//g')"
-    i=0
+    if [ $verbose == "1" ]; then echo -en "\033[2K\r$color_message""Analyzing catalog ..."; fi
+    unset -v grab
+    unset -v subs
+    unset -v teasers
     IFS=$'\n'
-    for title in $titles; do
-      if [ "${#title}" -gt 100 ] # cut titles longer than 100 characters
-      then titlelist[${thread_numbers[$i]}]="$(echo "$title" | cut -c1-100)..."
-      else titlelist[${thread_numbers[$i]}]="$title"
+    # grab relevant catalog pieces and analyze them
+    grab=($(echo "$catalog" | grep -Po '[0-9][0-9]*?\":.*?\"teaser\".*?\},' | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g' -e 's/\\//g'))
+    thread_numbers=($(echo "${grab[@]}" | grep -o '[0-9][0-9]*\":' | rev | cut -c3- | rev))
+    picture_numbers=($(echo "${grab[@]}" | grep -Po '\"i\":.*?,' | cut -c5- | rev | cut -c2- | rev))
+    i=0
+    for thread in ${thread_numbers[@]}; do
+      subs[$thread]=$(echo ${grab[$i]} | grep -Po 'sub\":\".*?\",\"teaser' | cut -c7- | rev | cut -c10- | rev)
+      teasers[$thread]=$(echo ${grab[$i]} | grep -Po 'teaser\":\".*?\"' | cut -c10- | rev | cut -c2- | rev)
+      # combine subs and teasers into titles, and remove possible whitespace
+      titlelist[$thread]="$(echo "${subs[$thread]} ${teasers[$thread]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+      # make sure titles are not longer than 100 characters
+      if [ ${#titlelist[$thread]} -gt 100 ]; then titlelist[$thread]="$(echo ${titlelist[$thread]} | cut -c1-100)..."; fi
+      # check if a thread has new pictures
+      if [ ! "${picture_numbers[$i]}" == "${picturecount[$thread]}" ]; then
+        found_new_pictures[$thread]="1"
+        picturecount[$thread]=${picture_numbers[$i]}
+      else unset -v "found_new_pictures[$thread]"
       fi
-      if [ ! "${picture_numbers[$i]}" == "${picturecount[${thread_numbers[$i]}]}" ]; then
-        found_new_pictures[${thread_numbers[$i]}]="1"
-        picturecount[${thread_numbers[$i]}]=${picture_numbers[$i]}
-      else unset -v "found_new_pictures[${thread_numbers[$i]}]"
-      fi
-      ((i++)) # count total number of threads
+      ((i++)) # count total numbers of threads
     done
+    if [ $verbose == "1" ]; then echo -en "\033[2K\r"; fi
+    if [ $debug == "1" ]; then
+      echo "Grabs: ${#grab[@]}"
+      echo "Threads: ${#thread_numbers[@]}"
+      echo "Subs: ${#subs[@]}"
+      echo "Teasers: ${#teasers[@]}"
+    fi
     unset IFS
     # Catalog error protection
     if [ $i -gt 200 ]; then
@@ -176,7 +189,7 @@ for thread_number in ${thread_numbers[@]}
 do
 
 # show line numbers
-if [ $verbose == "1" ]; then echo -en "$color_script$((i--)) "; fi
+if [ $verbose == "1" ]; then echo -en "$color_script$((i--)) $color_thread_watched$thread_number "; fi
 
 # skip current thread loop iteration if thread has been blocked previously
 if [[ ${blocked[$thread_number]} == 1 ]]; then
@@ -292,7 +305,7 @@ if [ $refresh_timer -gt 0 ]; then
   echo -en "\033[2K\r"
 fi
 
-# clean up arrays periodically
+# clean up arrays periodically (24h)
 if (($SECONDS - $timestamp_cleanup > 86400)); then
   unset -v blocked
   unset -v titlelist
