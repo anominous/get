@@ -1,5 +1,5 @@
 4chan image download script
-Download all images from multiple boards in no time (provided your connection can handle it).
+Download all images from multiple boards. Supports blacklisting and whitelisting.
 
 All you need is a Unix OS with Bash and cURL installed.
 This script works great on a Raspberry Pi 2.
@@ -17,6 +17,8 @@ Then run the script like this:
 Where BOARD is just the board's letters, e.g. a for /a/ (Anime & Manga).
 
 ./4get.sh a b c ...
+
+When a board runs for the first time, it may take a while. But subsequent loops are generally faster.
 
 Cancel it with CTRL-C.
 
