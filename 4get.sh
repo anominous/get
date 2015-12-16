@@ -129,14 +129,13 @@ if [ $verbose == "1" ]; then echo -e "$color_script$(du -sh $download_dir | cut 
 # download catalog
 while :
 do
-  if [ $verbose == "1" ]; then echo -en "$color_message""Downloading board index ..."; fi
   catalog=$(curl -A "$user_agent" -f -s "$http_string_text://boards.4chan.org/$board/catalog")
   if [[ ${#catalog} -lt 1000 ]]; then
-    echo -en "\r$color_message""Could not find the board /$board/. Retrying ..."
+    echo -en "\r$color_message""Could not find the board /$board/. Retrying ... "
     sleep 5
     echo -en "\033[2K\r" # clear whole line
   else
-    if [ $verbose == "1" ]; then echo -en "\033[2K\r$color_message""Analyzing catalog ..."; fi
+    echo -en "\033[2K\r$color_message""Analyzing board index ... "
     unset -v grab
     unset -v subs
     unset -v teasers
@@ -161,22 +160,20 @@ do
       fi
       ((i++)) # count total numbers of threads
     done
-    if [ $verbose == "1" ]; then echo -en "\033[2K\r"; fi
-    if [ $debug == "1" ]; then
-      echo "Grabs: ${#grab[@]}"
-      echo "Threads: ${#thread_numbers[@]}"
-      echo "Subs: ${#subs[@]}"
-      echo "Teasers: ${#teasers[@]}"
-    fi
     unset IFS
     # Catalog error protection
     if [ $i -gt 200 ]; then
-      echo -en "\r$color_message""Server buggy. Retrying ..."
+      echo -en "\033[2K\r$color_message""Server buggy. Retrying ... "
       sleep 10
-      echo -en "\033[2K\r"
       continue
     else
-      if [ $verbose == "1" ]; then echo -e "$color_script""Found $i threads"; fi
+      if [ $debug == "1" ]; then
+        echo -e "\033[2K\rGrabs: ${#grab[@]}"
+        echo "Threads: ${#thread_numbers[@]}"
+        echo "Subs: ${#subs[@]}"
+        echo "Teasers: ${#teasers[@]}"
+      fi
+      if [ $verbose == "1" ]; then echo -e "\033[2K\r$color_script""Found $i threads"; fi
       echo
       break
     fi
@@ -193,7 +190,7 @@ if [ $verbose == "1" ]; then echo -en "$color_script$((i--)) $color_thread_watch
 
 # skip current thread loop iteration if thread has been blocked previously
 if [[ ${blocked[$thread_number]} == 1 ]]; then
-  if [ $verbose == "1" ]; then echo -e "$fg_dark_gray${titlelist[$thread_number]}"; fi
+  if [ $verbose == "1" ]; then echo -e "$color_miss${titlelist[$thread_number]} $color_miss[${picturecount[$thread_number]}]"; fi
   continue # start next thread iteration
 fi
 
@@ -205,7 +202,7 @@ skip=0
 if [ "$blacklist_enabled" == "1" ] && [ ${#blacklist} -gt 0 ]; then
   for match in ${blacklist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
-      echo -e "$color_blacklist$match $color_miss${titlelist[$thread_number]}"
+      echo -e "$color_blacklist$match $color_miss${titlelist[$thread_number]} $color_miss[${picturecount[$thread_number]}]"
       if [ $hide_blacklisted_threads == "1" ] && [ ! $verbose == "1" ]; then blocked[$thread_number]=1; fi
       skip=1
       break
@@ -225,7 +222,7 @@ if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then
   done
   # ignore thread permanently if whitelist active, but thread not whitelisted
   if [ $skip -eq 1 ]; then
-    echo -e "$color_miss${titlelist[$thread_number]}"
+    echo -e "$color_miss${titlelist[$thread_number]} $color_miss[${picturecount[$thread_number]}]"
     blocked[$thread_number]=1
     set +f
     continue # start next thread iteration
@@ -280,7 +277,7 @@ else
       if [ $max_downloads -gt 0 ]; then
         download_count=$(ps -C curl --no-heading | wc -l)
         until [ $download_count -lt $max_downloads ]; do
-          echo -en "\r$color_message""Download limit reached [$download_count/$max_downloads]. Waiting ..."
+          echo -en "\r$color_message""Download limit reached [$download_count/$max_downloads]. Waiting ... "
           sleep 1
           download_count=$(ps -C curl --no-heading | wc -l)
         done
@@ -299,7 +296,7 @@ done # boards loop end
 
 if [ $refresh_timer -gt 0 ]; then
   while (($SECONDS - $timestamp_boards < $refresh_timer)); do
-    echo -en "\033[1K\r$color_message""Waiting $(($refresh_timer - $SECONDS + $timestamp_boards))"
+    echo -en "\033[1K\r$color_message""Waiting $(($refresh_timer - $SECONDS + $timestamp_boards)) "
     sleep 1
   done
   echo -en "\033[2K\r"
