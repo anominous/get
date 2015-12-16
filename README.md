@@ -1,4 +1,3 @@
-##4get
 ######4chan image download script
 Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on NAS devices.
 
