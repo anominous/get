@@ -32,7 +32,7 @@ Then just add "wallpapers artwork" to the whitelist:
 ```
 global_whitelist="wallpapers artwork"
 ```
-Whitelist means all threads which do not contain either "wallpapers" or "artwork" are ignored.
+Whitelist here means all threads which do not contain either "wallpapers" or "artwork" are ignored.
 You can limit this with a blacklist. If you don't want to download Naruto images, then just add "naruto" to the blacklist:
 ```
 global_blacklist="naruto"
