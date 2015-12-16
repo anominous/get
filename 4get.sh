@@ -175,13 +175,14 @@ do
       sleep 5
       continue
     else
+      echo -en "\033[2K\r"
       if [ $debug == "1" ]; then
-        echo -e "\033[2K\rGrabs: ${#grab[@]}"
+        echo "Grabs: ${#grab[@]}"
         echo "Threads: ${#thread_numbers[@]}"
         echo "Subs: ${#subs[@]}"
         echo "Teasers: ${#teasers[@]}"
       fi
-      if [ $verbose == "1" ]; then echo -e "\033[2K\r$color_script""Found $i threads"; fi
+      if [ $verbose == "1" ]; then echo -e "$color_script""Found $i threads"; fi
       echo
       break
     fi
