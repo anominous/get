@@ -3,7 +3,7 @@ Download all images from multiple boards. Supports blacklisting and whitelisting
 
 All you need is a Unix OS with Bash and cURL installed.
 ```
-sudo apt-get install curl
+sudo apt-get install bash curl
 ```
 ####Quick Start
 The default download directory is ~/Downloads/4chan.
