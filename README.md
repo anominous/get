@@ -31,7 +31,7 @@ Upper or lower case don't matter.
 
 You can use pattern matching to further refine your lists. See a manual at
 https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html#Pattern-Matching
-In case you wonder, inside the script all list items are automatically embedded in "*" characters.
+In case you wonder, inside the script all list items are converted to lower case and automatically embedded in "*" characters.
 
 Donald Duck, Daisy Duck, and Scrooge McDuck, but no other Ducks?
 +(Donald|Daisy|Scrooge)*Duck
