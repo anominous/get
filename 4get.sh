@@ -146,12 +146,12 @@ do
     picture_numbers=($(echo "${grab[@]}" | grep -Po '\"i\":.*?,' | cut -c5- | rev | cut -c2- | rev))
     i=0
     for thread in ${thread_numbers[@]}; do
-      subs[$thread]=$(echo ${grab[$i]} | grep -Po 'sub\":\".*?\",\"teaser' | cut -c7- | rev | cut -c10- | rev)
-      teasers[$thread]=$(echo ${grab[$i]} | grep -Po 'teaser\":\".*?\"' | cut -c10- | rev | cut -c2- | rev)
+      subs[$thread]=$(echo "${grab[$i]}" | grep -Po 'sub\":\".*?\",\"teaser' | cut -c7- | rev | cut -c10- | rev)
+      teasers[$thread]=$(echo "${grab[$i]}" | grep -Po 'teaser\":\".*?\"' | cut -c10- | rev | cut -c2- | rev)
       # combine subs and teasers into titles, and remove possible whitespace
       titlelist[$thread]="$(echo "${subs[$thread]} ${teasers[$thread]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
       # make sure titles are not longer than 100 characters
-      if [ ${#titlelist[$thread]} -gt 100 ]; then titlelist[$thread]="$(echo ${titlelist[$thread]} | cut -c1-100)..."; fi
+      if [ ${#titlelist[$thread]} -gt 100 ]; then titlelist[$thread]="$(echo "${titlelist[$thread]}" | cut -c1-100)..."; fi
       # check if a thread has new pictures
       if [ ! "${picture_numbers[$i]}" == "${picturecount[$thread]}" ]; then
         found_new_pictures[$thread]="1"
@@ -238,7 +238,7 @@ if [ ! "${found_new_pictures[$thread_number]}" == "1" ]; then
 fi
 
 # else download thread
-thread=$(curl -A "$user_agent" -f -s $(echo $thread_number | sed 's/^/'$http_string_text':\/\/boards.4chan.org\/'$board'\/res\//g'))
+thread=$(curl -A "$user_agent" -f -s $(echo "$thread_number" | sed 's/^/'$http_string_text':\/\/boards.4chan.org\/'$board'\/res\//g'))
 # do nothing more if thread is 404'd
 if [ ${#thread} -eq 0 ]
 then echo -e "$color_404""404 Not Found"
@@ -248,7 +248,7 @@ else
   if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_hit$match "; else echo -en "$color_hit""* "; fi
 
   # get real thread title from the downloaded file
-  title=$(echo $thread | grep -Po '<meta name="description" content=".*? \- \&quot;' | cut -c35- | rev | cut -c 10- | rev | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g')
+  title=$(echo "$thread" | grep -Po '<meta name="description" content=".*? \- \&quot;' | cut -c35- | rev | cut -c 10- | rev | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g')
   echo -en "$color_thread_watched$title $color_script[${picturecount[$thread_number]}] "
 
   # convert thread title into filesystem compatible format
@@ -257,7 +257,7 @@ else
   cd $download_dir/$title_dir
 
   # search thread for images & download
-  files=$(echo $thread | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$file_types"\) | sort -u | sed 's/^/'$http_string_pictures':/g')
+  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$file_types"\) | sort -u | sed 's/^/'$http_string_pictures':/g')
   if [ ${#files} -gt 0 ]; then
     # create download queue, only new files
     queue=""
