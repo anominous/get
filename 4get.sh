@@ -28,8 +28,8 @@ download_directory=~/Downloads/4chan
 # case insensitive; supports pattern matching
 # https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html
 # example: "g+(i)rls bo[iy]s something*between"
-whitelist_enabled=0
-whitelist=""
+global_whitelist_enabled=0
+global_whitelist=""
 # each board can have its own list: append the name of the board, e.g _a, _c, _m ...
 # board whitelists override the standard whitelist
 whitelist_enabled_a=0
@@ -37,8 +37,8 @@ whitelist_a=""
 
 # blacklist: "(But) Don't download these threads!"
 # blacklist takes precedence over whitelist
-blacklist_enabled=0
-blacklist=""
+global_blacklist_enabled=0
+global_blacklist=""
 # board-specific blacklists; they override the standard blacklist
 blacklist_enabled_a=0
 blacklist_a=""
@@ -112,10 +112,14 @@ download_dir=$download_directory/$board
 mkdir -p $download_dir
 if [ ! $? -eq 0 ]; then exit; fi
 
-if [ -v "blacklist_enabled_$board" ]; then blacklist_enabled=$(eval echo "\$blacklist_enabled_$board"); fi
-if [ -v "blacklist_$board" ]; then blacklist=$(eval echo "\$blacklist_$board"); fi
-if [ -v "whitelist_enabled_$board" ]; then whitelist_enabled=$(eval echo "\$whitelist_enabled_$board"); fi
-if [ -v "whitelist_$board" ]; then whitelist=$(eval echo "\$whitelist_$board"); fi
+if [ -v "blacklist_enabled_$board" ]; then blacklist_enabled=$(eval echo "\$blacklist_enabled_$board")
+else blacklist_enabled=$global_blacklist_enabled; fi
+if [ -v "blacklist_$board" ]; then blacklist=$(eval echo "\$blacklist_$board")
+else blacklist=$global_blacklist; fi
+if [ -v "whitelist_enabled_$board" ]; then whitelist_enabled=$(eval echo "\$whitelist_enabled_$board")
+else whitelist_enabled=$gobal_whitelist_enabled; fi
+if [ -v "whitelist_$board" ]; then whitelist=$(eval echo "\$whitelist_$board")
+else whitelist=$global_whitelist; fi
 
 # THREADS LOOP INITIALIZATION
 #############################
@@ -132,6 +136,8 @@ do
     echo -en "\033[2K\r" # clear whole line
   else
     # analyze catalog
+    unset -v thread_numbers
+    unset -v picture_numbers
     thread_numbers=($(echo "$catalog" | grep -o '[0-9][0-9]*\":' | rev | cut -c3- | rev))
     picture_numbers=($(echo "$catalog" | grep -Po '\"i\":.*?,' | cut -c5- | rev | cut -c2- | rev))
     titles="$(echo "$catalog" | grep -Po 'teaser\":\".*?\"' | cut -c10- | rev | cut -c2- | rev | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g' -e 's/\\//g')"
@@ -183,19 +189,20 @@ set -f # prevent file globbing
 title_lower_case=" ${titlelist[$thread_number],,} " # need those spaces
 skip=0
 # blacklist before whitelist
-if [ $blacklist_enabled == "1" ] && [ ${#blacklist} -gt 0 ]; then
+if [ "$blacklist_enabled" == "1" ] && [ ${#blacklist} -gt 0 ]; then
   for match in ${blacklist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
       echo -e "$color_blacklist$match $color_miss${titlelist[$thread_number]}"
       if [ $hide_blacklisted_threads == "1" ] && [ ! $verbose == "1" ]; then blocked[$thread_number]=1; fi
       skip=1
       break
+      set +f
     fi
   done
   if [ $skip -eq 1 ]; then continue; fi # start next thread iteration
 fi
 # whitelist
-if [ $whitelist_enabled == "1" ] && [ ${#whitelist} -gt 0 ]; then
+if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then
   skip=1
   for match in ${whitelist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
@@ -207,6 +214,7 @@ if [ $whitelist_enabled == "1" ] && [ ${#whitelist} -gt 0 ]; then
   if [ $skip -eq 1 ]; then
     echo -e "$color_miss${titlelist[$thread_number]}"
     blocked[$thread_number]=1
+    set +f
     continue # start next thread iteration
   fi
 fi
@@ -214,8 +222,8 @@ set +f # re-enable file globbing
 
 # skip thread iteration if no new pictures
 if [ ! "${found_new_pictures[$thread_number]}" == "1" ]; then
-  if [ $whitelist_enabled == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_miss$match "; fi
-  echo -e "$color_thread_watched${titlelist[$thread_number]} $color_script[$((${picturecount[$thread_number]}+1))]"
+  if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_miss$match "; fi
+  echo -e "$color_thread_watched${titlelist[$thread_number]} $color_script[${picturecount[$thread_number]}]"
   continue # start next thread iteration
 fi
 
@@ -227,11 +235,11 @@ then echo -e "$color_404""404 Not Found"
 # else try to save thread's images
 else
   # show user the thread is updated, with colors and "*"
-  if [ $whitelist_enabled == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_hit$match "; else echo -en "$color_hit""* "; fi
+  if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_hit$match "; else echo -en "$color_hit""* "; fi
 
   # get real thread title from the downloaded file
   title=$(echo $thread | grep -Po '<meta name="description" content=".*? \- \&quot;' | cut -c35- | rev | cut -c 10- | rev | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g')
-  echo -en "$color_thread_watched$title $color_script[$((${picturecount[$thread_number]}+1))] "
+  echo -en "$color_thread_watched$title $color_script[${picturecount[$thread_number]}] "
 
   # convert thread title into filesystem compatible format
   title_dir=$(echo "$title" | sed -e 's/[^'$allowed_filename_characters']/'$replacement_character'/g')
@@ -265,9 +273,9 @@ else
         done
         echo -en "\033[2K\r"
       fi
-    else
-      echo
+    else echo
     fi
+  else echo
   fi
 fi
 
@@ -285,7 +293,7 @@ if [ $refresh_timer -gt 0 ]; then
 fi
 
 # clean up arrays periodically
-if (($SECONDS - $timestamp_cleanup > 1800)); then
+if (($SECONDS - $timestamp_cleanup > 86400)); then
   unset -v blocked
   unset -v titlelist
   unset -v picturecount
