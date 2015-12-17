@@ -1,5 +1,5 @@
 #!/bin/bash
-# 4chan image download script - Version 2015/12/16
+# 4chan image download script - Version 2015/12/17
 # Downloads all images from one or multiple boards
 
 # number of CPU cores
