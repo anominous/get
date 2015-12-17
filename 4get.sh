@@ -74,7 +74,7 @@ fg_white="\033[1;37;$bg"
 # adjust script colors below
 color_script=$fg_dark_yellow
 color_message=$fg_cyan
-color_thread_watched=$fg_gray
+color_normal=$fg_gray
 color_hit=$fg_green
 color_miss=$fg_dark_gray
 color_blacklist=$fg_red
@@ -89,9 +89,9 @@ fi
 
 # these arrays are accessible by thread number
 declare -a blocked # blocked thread
-declare -a title_list # thread title
-declare -a short_title_list # title which respects max_title_length
-declare -a total_pictures # thread's total number of picture files
+declare -a title_list # thread title (headline + content)
+declare -a displayed_title_list # displayed title which respects $max_title_length
+declare -a cached_picture_count # thread's cached total number of picture files
 declare -a has_new_pictures # thread is known to have new pictures
 
 timestamp_cleanup=$SECONDS
@@ -140,36 +140,35 @@ do
     echo -en "\033[2K\r" # clear whole line
   else
     echo -en "\033[2K\r$color_message""Analyzing board index ... "
-    unset -v grab
-    unset -v subs
-    unset -v teasers
-    IFS=$'\n' # necessary to work with lines and arrays
-    # grab relevant catalog pieces, cut & split them
-    grab=($(echo "$catalog" | grep -Po '[0-9][0-9]*?\":.*?\"teaser\".*?\},' | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g' -e 's/\\//g'))
-    thread_numbers=($(echo "${grab[@]}" | grep -o '[0-9][0-9]*\":' | rev | cut -c3- | rev))
-    picture_numbers=($(echo "${grab[@]}" | grep -Po '\"i\":.*?,' | cut -c5- | rev | cut -c2- | rev))
+    unset -v title_list
+    unset -v displayed_title_list
+    unset -v has_new_pictures
+    IFS=$'\n' # necessary to create lines for sed
+    # grab relevant catalog pieces, cut & split them; replace HTML entities
+    grabs=($(echo "$catalog" | grep -Po '[0-9][0-9]*?\":.*?\"teaser\".*?\},' | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g' -e 's/\\//g'))
+    thread_numbers=$(echo "${grabs[*]}" | sed 's/":.*$//')
+    current_picture_count=($(echo "${grabs[*]}" | sed -e 's/^.*"i"://' -e 's/,.*$//'))
+    subs=($(echo "${grabs[*]}" | sed -e 's/^.*sub":"//' -e 's/","teaser.*$//' -e 's/^/ /')) # last sed: insert a space character in case the sub is emtpy
+    teasers=($(echo "${grabs[*]}" | sed -e 's/^.*teaser":"//' -e 's/"}\+,.*$//' -e 's/$/ /')) # see above
+    unset IFS
     i=0
-    for thread_number in ${thread_numbers[@]}; do
-      subs[$thread_number]=$(echo "${grab[$i]}" | sed -e 's/^.*sub":"//' -e 's/","teaser.*$//')
-      teasers[$thread_number]=$(echo "${grab[$i]}" | sed -e 's/^.*teaser":"//' -e 's/"}\+,.*$//')
-      # combine subs and teasers into titles, and remove possible whitespace
-      title_list[$thread_number]="$(echo "${subs[$thread_number]} ${teasers[$thread_number]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-      # displayed titles can be different from internal titles
-      # make sure titles are not longer than specified characters
+    for thread_number in $thread_numbers; do
+      # combine subs and teasers into titles, and remove whitespace
+      title_list[$thread_number]="$(echo "${subs[$i]} ${teasers[$i]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
+      # make sure displayed titles are not longer than user specified length
       if [ ${#title_list[$thread_number]} -gt $max_title_length ]; then
-         short_title_list[$thread_number]="$(echo "${title_list[$thread_number]}" | cut -c1-$max_title_length)..."
-      else short_title_list[$thread_number]="${title_list[$thread_number]}"
+         displayed_title_list[$thread_number]="$(echo "${title_list[$thread_number]}" | cut -c1-$max_title_length)..."
+      else displayed_title_list[$thread_number]="${title_list[$thread_number]}"
       fi
       # check if a thread has new pictures
-      if [ ! "${picture_numbers[$i]}" == "${total_pictures[$thread_number]}" ]; then
+      if [ ! "${current_picture_count[$i]}" == "${cached_picture_count[$thread_number]}" ]; then
         has_new_pictures[$thread_number]="1"
-        total_pictures[$thread_number]=${picture_numbers[$i]}
+        cached_picture_count[$thread_number]=${current_picture_count[$i]}
       else unset -v "has_new_pictures[$thread_number]"
       fi
       ((i++)) # count total numbers of threads
     done
-    unset IFS
-    # Catalog error protection
+    # catalog error protection
     if [ $i -gt 200 ]; then
       echo -en "\033[2K\r$color_message""Server buggy. Retrying ... "
       sleep 5
@@ -177,8 +176,7 @@ do
     else
       echo -en "\033[2K\r"
       if [ $debug == "1" ]; then
-        echo "Grabs: ${#grab[@]}"
-        echo "Threads: ${#thread_numbers[@]}"
+        echo "Grabs: ${#grabs[@]}"
         echo "Subs: ${#subs[@]}"
         echo "Teasers: ${#teasers[@]}"
       fi
@@ -191,15 +189,15 @@ done
 
 # THREADS LOOP
 ##############
-for thread_number in ${thread_numbers[@]}
+for thread_number in $thread_numbers
 do
 
 # show line numbers
-if [ $verbose == "1" ]; then echo -en "$color_script$((i--)) $color_thread_watched$thread_number "; fi
+if [ $verbose == "1" ]; then echo -en "$color_script$((i--)) $color_normal$thread_number "; fi
 
 # skip current thread loop iteration if thread has been blocked previously
 if [[ ${blocked[$thread_number]} == 1 ]]; then
-  if [ $verbose == "1" ]; then echo -e "$color_miss${short_title_list[$thread_number]} $color_miss[${total_pictures[$thread_number]}]"; fi
+  if [ $verbose == "1" ]; then echo -e "$color_miss${displayed_title_list[$thread_number]} $color_miss[${cached_picture_count[$thread_number]}]"; fi
   continue # start next thread iteration
 fi
 
@@ -211,7 +209,7 @@ skip=0
 if [ "$blacklist_enabled" == "1" ] && [ ${#blacklist} -gt 0 ]; then
   for match in ${blacklist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
-      echo -e "$color_blacklist$match $color_miss${short_title_list[$thread_number]} $color_miss[${total_pictures[$thread_number]}]"
+      echo -e "$color_blacklist$match $color_miss${displayed_title_list[$thread_number]} $color_miss[${cached_picture_count[$thread_number]}]"
       if [ $hide_blacklisted_threads == "1" ] && [ ! $verbose == "1" ]; then blocked[$thread_number]=1; fi
       skip=1
       break
@@ -231,7 +229,7 @@ if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then
   done
   # ignore thread permanently if whitelist active, but thread not whitelisted
   if [ $skip -eq 1 ]; then
-    echo -e "$color_miss${short_title_list[$thread_number]} $color_miss[${total_pictures[$thread_number]}]"
+    echo -e "$color_miss${displayed_title_list[$thread_number]} $color_miss[${cached_picture_count[$thread_number]}]"
     blocked[$thread_number]=1
     set +f
     continue # start next thread iteration
@@ -242,7 +240,7 @@ set +f # re-enable file globbing
 # skip thread iteration if no new pictures
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
   if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_miss$match "; fi
-  echo -e "$color_thread_watched${short_title_list[$thread_number]} $color_script[${total_pictures[$thread_number]}]"
+  echo -e "$color_normal${displayed_title_list[$thread_number]} $color_script[${cached_picture_count[$thread_number]}]"
   continue # start next thread iteration
 fi
 
@@ -257,10 +255,10 @@ else
   if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then echo -en "$color_hit$match "; else echo -en "$color_hit""* "; fi
 
   # get real thread title from the downloaded file
-  title=$(echo "$thread" | grep -Po '<meta name="description" content=".*? \- \&quot;' | cut -c35- | rev | cut -c 10- | rev | sed -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g')
+  title=$(echo "$thread" | sed -e 's/^.*<meta name="description" content="//' -e 's/ - &quot;\/.*$//' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g')
   if [ ${#title} -gt $max_title_length ] # respect user's title length setting
-  then echo -en "$color_thread_watched$(echo "$title" | cut -c1-$max_title_length)... $color_script[${total_pictures[$thread_number]}] "
-  else echo -en "$color_thread_watched$title $color_script[${total_pictures[$thread_number]}] "
+  then echo -en "$color_normal$(echo "$title" | cut -c1-$max_title_length)... $color_script[${cached_picture_count[$thread_number]}] "
+  else echo -en "$color_normal$title $color_script[${cached_picture_count[$thread_number]}] "
   fi
 
   # convert thread title into filesystem compatible format
@@ -277,7 +275,7 @@ else
     for file in $files; do
       if [ ! -e $(basename $file) ]; then
         queue+="$file
-        " # inserting a new line
+        " # inserting a source code new line
         ((number_of_new_files++))
       fi
     done
@@ -295,7 +293,7 @@ else
         done
         echo -en "\033[2K\r"
       fi
-    else echo
+    else echo -e "$color_hit[-]"
     fi
   else echo
   fi
@@ -317,10 +315,7 @@ fi
 # clean up arrays periodically (24h)
 if (($SECONDS - $timestamp_cleanup > 86400)); then
   unset -v blocked
-  unset -v title_list
-  unset -v short_title_list
-  unset -v total_pictures
-  unset -v has_new_pictures
+  unset -v cached_picture_count
   timestamp_cleanup=$SECONDS
 fi
 
