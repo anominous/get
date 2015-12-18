@@ -1,5 +1,5 @@
 ####4chan image download script
-Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on NAS devices.
+Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on many NAS devices.
 
 All you need is a Unix OS with Bash and cURL installed.
 ```
@@ -27,12 +27,14 @@ Cancel it with CTRL-C.
 Start of a line:
 [ ] The thread has been skipped
 [!] The thread has been blacklisted (the first word after this is the matching blacklist entry)
-[*] The thread is watched, but no new images have been found
-[+] The thread is watched, and has new images
+[*] The thread is being watched, but no new images have been found
+[+] The thread is being watched, and has new images
+[i] The thread is being watched, but its image number is too low (option min_images)
 
 End of a line:
 [+number] Number of new images that are downloaded
-[-] The thread has new images, but either you already have them or they are of a type you don't want to download
+[-] The thread has new images, but either you already have them,
+    or they are of a type you don't want to download
 ```
 
 ####Advanced Options
