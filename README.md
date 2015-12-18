@@ -18,7 +18,7 @@ Where BOARD is just the board's letters, e.g. a for /a/ (Anime & Manga).
 ```
 ./4get.sh a b c ...
 ```
-When a board runs for the first time, it may take a while. But subsequent loops are generally faster.
+When a board runs for the first time, it may take a while. But subsequent loops are generally much faster.
 
 Cancel it with CTRL-C.
 
@@ -32,7 +32,7 @@ Start of a line:
 
 End of a line:
 [+number] Number of new images that are downloaded
-[-] The thread has new images, but the new image are of a type you don't want to download
+[-] The thread has new images, but they are of a type you don't want to download
 ```
 
 ####Advanced Options
@@ -42,7 +42,7 @@ Then just add "wallpapers artwork" to the whitelist:
 whitelist="wallpapers artwork"
 ```
 "Whitelist" here means all threads which don't contain either "wallpapers" or "artwork" are ignored.
-You can limit this with a blacklist. If you don't want to download Naruto images, then just add "naruto" to the blacklist:
+You can further limit this with a blacklist. If you don't want to download Naruto images, then just add "naruto" to the blacklist:
 ```
 blacklist="naruto"
 ```
@@ -70,7 +70,7 @@ blacklist_a="i hate this"
 ```
 for board /a/.
 
-The global lists "whitelist" and "blacklist" are automatically merged with existing custom lists.
+The global lists "whitelist" and "blacklist" are automatically merged with existing board-specific lists.
 If you want to disable lists without deleting them, just comment them:
 ```
 Active:
