@@ -1,5 +1,5 @@
 #!/bin/bash
-# 4chan image download script - version 2015/12/18-3
+# 4chan image download script - version 2015/12/18-5
 # downloads all images from one or multiple boards
 # latest version at https://github.com/anominous/4get
 
@@ -162,10 +162,20 @@ if [ -v blacklist_$board ]
 then internal_blacklist="$blacklist $(eval echo "\$blacklist_$board")"
 else internal_blacklist="$blacklist"
 fi
+a=0
+for blah in $internal_blacklist; do
+((a++))
+done
+echo $a
 if [ -v whitelist_$board ]
 then internal_whitelist="$whitelist $(eval echo "\$whitelist_$board")"
 else internal_whitelist="$whitelist"
 fi
+a=0
+for blah in $internal_whitelist; do
+((a++))
+done
+echo $a
 
 # THREADS LOOP INITIALIZATION
 #############################
@@ -235,7 +245,7 @@ for thread_number in $thread_numbers
 do
 
 # show line numbers
-if [ $verbose == "1" ]; then 
+if [ $verbose == "1" ]; then
   if [ $i -lt 100 ]; then echo -en "$color_script""0"; fi
   if [ $i -lt 10 ]; then echo -en "$color_script""0"; fi
   echo -en "$color_script$((i--)) $color_watched$thread_number "
@@ -283,11 +293,12 @@ if [ ${#internal_whitelist} -gt 0 ]; then
   fi
 fi
 
+# the only threads left are threads we watch
 # skip thread iteration if no new pictures
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
   if [ ${#internal_whitelist} -gt 0 ]
   then echo -e "$color_skipped[*] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
-  else echo -e "$color_skipped[ ] $color_watched${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
+  else echo -e "$color_skipped[*] $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
   fi
   continue # start next thread iteration
 fi
