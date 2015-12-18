@@ -1,9 +1,9 @@
-######4chan image download script
+####4chan image download script
 Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on NAS devices.
 
 All you need is a Unix OS with Bash and cURL installed.
 ```
-sudo apt-get install bash curl
+sudo apt-get install curl
 ```
 ####Quick Start
 The default download directory is ~/Downloads/4chan.
@@ -36,18 +36,15 @@ End of a line:
 ```
 
 ####Advanced Options
-Say you only want to download wallpapers and artwork. First make sure to enable the whitelist by setting 
-```
-global_whitelist_enabled=1
-```
+Say you only want to download wallpapers and artwork.
 Then just add "wallpapers artwork" to the whitelist:
 ```
-global_whitelist="wallpapers artwork"
+whitelist="wallpapers artwork"
 ```
-Whitelist here means all threads which don't contain either "wallpapers" or "artwork" are ignored.
+"Whitelist" here means all threads which don't contain either "wallpapers" or "artwork" are ignored.
 You can limit this with a blacklist. If you don't want to download Naruto images, then just add "naruto" to the blacklist:
 ```
-global_blacklist="naruto"
+blacklist="naruto"
 ```
 Then wallpapers and artwork are still downloaded, but only if the thread title does not contain "naruto".
 Upper or lower case don't matter.
@@ -68,12 +65,30 @@ https://en.wikipedia.org/wiki/Regular_expression#Character_classes
 
 You can also create board-specific lists. Just append _BOARD at the end, e.g.
 ```
-whitelist_a="your items here"
+whitelist_a="download this"
+blacklist_a="i hate this"
 ```
 for board /a/.
 
-Make sure to enable the board list with 
+The global lists "whitelist" and "blacklist" are automatically merged with existing custom lists.
+If you want to disable lists without deleting them, just comment them:
 ```
-whitelist_enabled_a=1
+Active:
+whitelist="download this"
+blacklist_a="dragonball"
+
+Disabled:
+#whitelist="download this"
+#blacklist_a="dragonball"
 ```
-Board lists override global lists.
+
+####Tips
+While the multi board option is useful for your average boards, some boards are very active and get updates every few seconds. You might want to run them in separate terminals or background processes:
+```
+./4get.sh a &> /dev/null &
+./4get.sh b &> /dev/null &
+...
+If you try this and don't know how to terminate them, use
+´´´
+killall 4get.sh
+´´´
