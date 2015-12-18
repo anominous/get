@@ -3,15 +3,13 @@
 # downloads all images from one or multiple boards
 # latest version at https://github.com/anominous/4get
 
-# number of CPU cores
-cores=4
-
-# limit the number of background download processes; 0 means no limit
-max_downloads=20
-
-# board(s) to download, e.g. boards="a c m" for /a/, /c/, and /m/
+# board(s) to download, e.g. boards="a b c" for /a/, /b/, and /c/
 # command line arguments override this
 boards=""
+
+# files are saved in the board's sub directory, e.g. ~Downloads/4chan/b
+# the directories are automatically created
+download_directory=~/Downloads/4chan
 
 # file types to download, separated by "|" (if more than one type)
 # board-specific lists: file_types_a, file_types_b, ...
@@ -22,10 +20,6 @@ file_types="jpg|png|gif|webm"
 http_string_text=https # used for text file downloads
 http_string_pictures=https # used for image downloads
 user_agent='Mozilla/5.0 (Windows NT 10.0; WOW64; rv:43.0) Gecko/20100101 Firefox/43.0'
-
-# files are saved in the board's sub directory, e.g. ~Downloads/4chan/b
-# the directories are automatically created
-download_directory=~/Downloads/4chan
 
 # whitelists and blacklists are case insensitive
 # they support pattern matching: https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html
@@ -45,6 +39,9 @@ blacklist=""
 color_theme=black
 
 # miscellaneous options
+cores=1 # number of your device's CPU cores
+max_downloads=20 # limits the number of background download processes; 0 means no limit (careful!)
+min_images=0 # minimum amount of images a thread must have; note that OP's image counts as zero
 hide_blacklisted_threads=0 # do not show blacklisted threads in future loops; verbose overrides this
 verbose=0 # shows loop numbers, disk usage, total amount of threads, and previously skipped threads
 allowed_filename_characters="A-Za-z0-9_-" # when creating directories, only use these characters
@@ -114,6 +111,7 @@ if [ ! -v download_directory ]; then
 fi
 if [ ! -v cores ]; then cores=1; fi
 if [ ! -v max_downloads ]; then max_downloads=20; fi
+if [ ! -v min_images ]; then min_images=0; fi
 if [ ! -v file_types ]; then file_types="jpg|png|gif|webm"; fi
 if [ ! -v http_string_text ]; then http_string_text=https; fi
 if [ ! -v http_string_images ]; then http_string_images=https; fi
@@ -273,19 +271,24 @@ if [ ${#internal_blacklist} -gt 0 ]; then
 fi
 # whitelist
 if [ ${#internal_whitelist} -gt 0 ]; then
-  skip=1
+  match_found=0
   set -f
   for match in ${internal_whitelist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
-      skip=0
+      match_found=1
       break
     fi
   done
+  set +f
+  # skip thread if match has been found but thread's image number too low
+  if [ $match_found -eq 1 ] && [ "${cached_picture_count[$thread_number]}" -lt $min_images ]; then
+    echo -e "$color_skipped[i] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
+    continue # start next thread iteration
+  fi
   # ignore thread permanently if whitelist active, but thread not whitelisted
-  if [ $skip -eq 1 ]; then
+  if [ $match_found -eq 0 ]; then
     echo -e "$color_skipped[ ] ${displayed_title_list[$thread_number]} $color_skipped[${cached_picture_count[$thread_number]}]"
     blocked[$thread_number]=1
-    set +f
     continue # start next thread iteration
   fi
 fi
@@ -321,10 +324,10 @@ else
   mkdir -p $download_dir/$title_dir
   cd $download_dir/$title_dir
 
-  # search thread for images & download
+  # search thread for images and download them
   files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sort -u | sed 's/^/'$http_string_images':/g')
   if [ ${#files} -gt 0 ]; then
-    # create download queue, only new files
+    # create download queue; only new files that don't yet exist in the download folder
     queue=""
     number_of_new_files=0
     for file in $files; do
