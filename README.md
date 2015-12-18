@@ -32,7 +32,7 @@ Start of a line:
 
 End of a line:
 [+number] Number of new images that are downloaded
-[-] The thread has new images, but they are of a type you don't want to download
+[-] The thread has new images, but either you already have them or they are of a type you don't want to download
 ```
 
 ####Advanced Options
