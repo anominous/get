@@ -1,5 +1,5 @@
 #!/bin/bash
-# 4chan image download script - version 2015/12/18-5
+# 4chan image download script - version 2015/12/18-6
 # downloads all images from one or multiple boards
 # latest version at https://github.com/anominous/4get
 
@@ -162,20 +162,10 @@ if [ -v blacklist_$board ]
 then internal_blacklist="$blacklist $(eval echo "\$blacklist_$board")"
 else internal_blacklist="$blacklist"
 fi
-a=0
-for blah in $internal_blacklist; do
-((a++))
-done
-echo $a
 if [ -v whitelist_$board ]
 then internal_whitelist="$whitelist $(eval echo "\$whitelist_$board")"
 else internal_whitelist="$whitelist"
 fi
-a=0
-for blah in $internal_whitelist; do
-((a++))
-done
-echo $a
 
 # THREADS LOOP INITIALIZATION
 #############################
