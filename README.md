@@ -22,6 +22,19 @@ When a board runs for the first time, it may take a while. But subsequent loops 
 
 Cancel it with CTRL-C.
 
+######What do all those signs mean?
+```
+Start of a line:
+[ ] The thread has been skipped
+[!] The thread has been blacklisted (the first word after this is the matching blacklist entry)
+[*] The thread is watched, but no new images have been found
+[+] The thread is watched, and has new images
+
+End of a line:
+[+number] Number of new images that are downloaded
+[-] The thread has new images, but the new image are of a type you don't want to download
+```
+
 ####Advanced Options
 Say you only want to download wallpapers and artwork. First make sure to enable the whitelist by setting 
 ```
