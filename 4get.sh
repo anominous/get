@@ -1,5 +1,5 @@
 #!/bin/bash
-# 4chan image download script - version 2015/12/18-6
+# 4chan image download script
 # downloads all images from one or multiple boards
 # latest version at https://github.com/anominous/4get
 
@@ -13,7 +13,8 @@ max_downloads=20
 # command line arguments override this
 boards=""
 
-# file types to download, separated by "|"
+# file types to download, separated by "|" (if more than one type)
+# board-specific lists: file_types_a, file_types_b, ...
 # example: "jpg|png|gif|webm"
 file_types="jpg|png|gif|webm"
 
@@ -26,21 +27,20 @@ user_agent='Mozilla/5.0 (Windows NT 10.0; WOW64; rv:43.0) Gecko/20100101 Firefox
 # the directories are automatically created
 download_directory=~/Downloads/4chan
 
-# whitelist: "Download only these threads!"
-# case insensitive; supports pattern matching
-# https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html
+# whitelists and blacklists are case insensitive
+# they support pattern matching: https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html
 # example: "g+(i)rls bo[iy]s something*between"
-whitelist=""
-# each board can have its own whitelist: append the name of the board, e.g _a, _c, _m ...
-whitelist_a=""
 
-# blacklist: "(But) Don't download these threads!"
+# whitelist: "Download only this!"
+# board-specific lists: whitelist_a, whitelist_b, ...
+whitelist=""
+
+# blacklist: "(But) Don't download this!"
+# board-specific lists: blacklist_a, blacklist_b, ...
 blacklist=""
-# board-specific blacklists
-blacklist_a=""
 
 # color themes: you can choose one of the default color themes (black or blue)
-# or you can create one yourself in the source code below
+# or you can create a theme yourself in the source code below
 # leave empty to not use any colors
 color_theme=black
 
@@ -157,14 +157,21 @@ download_dir=$download_directory/$board
 mkdir -p $download_dir
 if [ ! $? -eq 0 ]; then exit; fi
 
-# check for existing custom board lists
+# check for board-specific lists
 if [ -v blacklist_$board ]
 then internal_blacklist="$blacklist $(eval echo "\$blacklist_$board")"
 else internal_blacklist="$blacklist"
 fi
+internal_blacklist=$(echo "$internal_blacklist" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
 if [ -v whitelist_$board ]
 then internal_whitelist="$whitelist $(eval echo "\$whitelist_$board")"
 else internal_whitelist="$whitelist"
+fi
+internal_whitelist=$(echo "$internal_whitelist" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')
+# check for board-specific file types
+if [ -v file_types_$board ]
+then internal_file_types="$(eval echo "\$file_types_$board")"
+else internal_file_types="$file_types"
 fi
 
 # THREADS LOOP INITIALIZATION
@@ -288,7 +295,7 @@ fi
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
   if [ ${#internal_whitelist} -gt 0 ]
   then echo -e "$color_skipped[*] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
-  else echo -e "$color_skipped[*] $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
+  else echo -e "$color_skipped[*] $color_watched"${displayed_title_list[$thread_number]}" [${cached_picture_count[$thread_number]}]"
   fi
   continue # start next thread iteration
 fi
@@ -315,7 +322,7 @@ else
   cd $download_dir/$title_dir
 
   # search thread for images & download
-  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$file_types"\) | sort -u | sed 's/^/'$http_string_images':/g')
+  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sort -u | sed 's/^/'$http_string_images':/g')
   if [ ${#files} -gt 0 ]; then
     # create download queue, only new files
     queue=""
