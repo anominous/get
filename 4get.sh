@@ -1,5 +1,5 @@
 #!/bin/bash
-# 4chan image download script - version 2015/12/18-2
+# 4chan image download script - version 2015/12/18-3
 # downloads all images from one or multiple boards
 # latest version at https://github.com/anominous/4get
 
@@ -158,8 +158,14 @@ mkdir -p $download_dir
 if [ ! $? -eq 0 ]; then exit; fi
 
 # check for existing custom board lists
-if [ -v "blacklist_$board" ]; then blacklist="$blacklist $(eval echo "\$blacklist_$board")"; fi
-if [ -v "whitelist_$board" ]; then whitelist="$whitelist $(eval echo "\$whitelist_$board")"; fi
+if [ -v blacklist_$board ]
+then internal_blacklist="$blacklist $(eval echo "\$blacklist_$board")"
+else internal_blacklist="$blacklist"
+fi
+if [ -v whitelist_$board ]
+then internal_whitelist="$whitelist $(eval echo "\$whitelist_$board")"
+else internal_whitelist="$whitelist"
+fi
 
 # THREADS LOOP INITIALIZATION
 #############################
@@ -245,9 +251,9 @@ fi
 title_lower_case=" ${title_list[$thread_number],,} " # need those spaces for matching
 skip=0
 # blacklist before whitelist
-if [ ${#blacklist} -gt 0 ]; then
+if [ ${#internal_blacklist} -gt 0 ]; then
   set -f # prevent file globbing
-  for match in ${blacklist,,}; do
+  for match in ${internal_blacklist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
       echo -e "$color_blacklist[!] $match $color_skipped$(matchcut "${displayed_title_list[$thread_number]}") $color_skipped[${cached_picture_count[$thread_number]}]"
       if [ $hide_blacklisted_threads == "1" ] && [ ! $verbose == "1" ]; then blocked[$thread_number]=1; fi
@@ -259,10 +265,10 @@ if [ ${#blacklist} -gt 0 ]; then
   if [ $skip -eq 1 ]; then continue; fi # start next thread iteration
 fi
 # whitelist
-if [ ${#whitelist} -gt 0 ]; then
+if [ ${#internal_whitelist} -gt 0 ]; then
   skip=1
   set -f
-  for match in ${whitelist,,}; do
+  for match in ${internal_whitelist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
       skip=0
       break
@@ -279,7 +285,7 @@ fi
 
 # skip thread iteration if no new pictures
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
-  if [ ${#whitelist} -gt 0 ]
+  if [ ${#internal_whitelist} -gt 0 ]
   then echo -e "$color_skipped[*] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
   else echo -e "$color_skipped[ ] $color_watched${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
   fi
@@ -288,7 +294,7 @@ fi
 
 # show user the thread is going to be updated
 echo -en "$color_whitelist[+] "
-if [ ${#whitelist} -gt 0 ]
+if [ ${#internal_whitelist} -gt 0 ]
 then echo -en "$match "
 fi
 # download thread
