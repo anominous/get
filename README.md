@@ -88,7 +88,8 @@ While the multi board option is useful for your average boards, some boards are 
 ./4get.sh a &> /dev/null &
 ./4get.sh b &> /dev/null &
 ...
+```
 If you try this and don't know how to terminate them, use
-´´´
+```
 killall 4get.sh
-´´´
+```
