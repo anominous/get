@@ -34,16 +34,16 @@ global_whitelist_enabled=0
 global_whitelist=""
 # each board can have its own list: append the name of the board, e.g _a, _c, _m ...
 # board whitelists override the global whitelist
-whitelist_enabled_a=0
-whitelist_a=""
+#whitelist_enabled_a=0
+#whitelist_a=""
 
 # blacklist: "(But) Don't download these threads!"
 # blacklist takes precedence over whitelist
 global_blacklist_enabled=0
 global_blacklist=""
 # board-specific blacklists; they override the global blacklist
-blacklist_enabled_a=0
-blacklist_a=""
+#blacklist_enabled_a=0
+#blacklist_a=""
 
 # color themes: you can choose one of the default color themes (black or blue)
 # or you can create one yourself in the source code below
