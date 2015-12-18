@@ -1,5 +1,5 @@
 #!/bin/bash
-# 4chan image download script - version 2015/12/18
+# 4chan image download script - version 2015/12/18-2
 # downloads all images from one or multiple boards
 # latest version at https://github.com/anominous/4get
 
@@ -51,11 +51,11 @@ blacklist_a=""
 color_theme=black
 
 # miscellaneous options
+hide_blacklisted_threads=0 # do not show blacklisted threads in future loops; verbose overrides this
 verbose=0 # shows loop numbers, disk usage, total amount of threads, and previously skipped threads
 allowed_filename_characters="A-Za-z0-9_-" # when creating directories, only use these characters
 replacement_character="_" # replace unallowed characters with this character
-refresh_timer=10 # minimum time to wait between board refreshes; in seconds
-hide_blacklisted_threads=1 # do not show blacklisted threads in future loops; verbose overrides this
+loop_timer=10 # minimum time to wait between board loops; in seconds
 max_title_length=62 # dispayed title length (in characters) - this does not change internal values
 
 #############################################################################
@@ -64,48 +64,42 @@ max_title_length=62 # dispayed title length (in characters) - this does not chan
 if [ $# -gt 0 ]; then
   boards=$@ # command line arguments override user's boards setting
 elif [ "$boards" == "" ]; then
-  echo "You must specify a board name."
+  echo "You must specify one or multiple board names:"
+  echo "$0 a b c [...]"
   exit
 fi
 
-bg_black="40m"; bg_red="41m"; bg_green="42m"; bg_yellow="43m"
-bg_blue="44m"; bg_purple="45m"; bg_teal="46m", bg_gray="47m"
-
-function init_colors {
-  fg_black="\033[0;30;$bg";  fg_dark_gray="\033[1;30;$bg"
-  fg_red="\033[0;31;$bg";    fg_red_bold="\033[1;31;$bg"
-  fg_green="\033[0;32;$bg";  fg_green_bold="\033[1;32;$bg"
-  fg_yellow="\033[0;33;$bg"; fg_yellow_bold="\033[1;33;$bg"
-  fg_blue="\033[0;34;$bg";   fg_blue_bold="\033[1;34;$bg";
-  fg_purple="\033[0;35;$bg"; fg_purple_bold="\033[1;35;$bg";
-  fg_teal="\033[0;36;$bg";   fg_teal_bold="\033[1;36;$bg"
-  fg_gray="\033[0;37;$bg";   fg_white="\033[1;37;$bg"
-  # fill screen with selected background color
-  echo -e "\033[$bg"
-  if [ ! $debug == "1" ]; then clear; fi
-}
+# foreground colors                            # background colors
+fg_black="\e[30m";  fg_gray_dark="\e[90m";     bg_black="\e[40m";  bg_gray_dark="\e[100m"
+fg_red="\e[31m";    fg_red_bright="\e[91m";    bg_red="\e[41m";    bg_red_bright="\e[101m"
+fg_green="\e[32m";  fg_green_bright="\e[92m";  bg_green="\e[42m";  bg_green_bright="\e[102m"
+fg_yellow="\e[33m"; fg_yellow_bright="\e[93m"; bg_yellow="\e[43m"; bg_yellow_bright="\e[103m"
+fg_blue="\e[34m";   fg_blue_bright="\e[94m";   bg_blue="\e[44m";   bg_blue_bright="\e[104m"
+fg_purple="\e[35m"; fg_purple_bright="\e[95m"; bg_purple="\e[45m"; bg_purple_bright="\e[105m"
+fg_teal="\e[36m";   fg_teal_bright="\e[96m";   bg_teal="\e[46m";   bg_teal_bright="\e[106m"
+fg_gray="\e[37m";   fg_white="\e[97m";         bg_gray="\e[47m";   bg_white="\e[107m"
 
 case $color_theme in
 black)
-  bg=$bg_black; init_colors
+  bg=$bg_black
   color_script=$fg_yellow
-  color_patience=$fg_teal_bold
+  color_patience=$fg_teal_bright
   color_watched=$fg_gray
-  color_skipped=$fg_dark_gray
-  color_whitelist=$fg_green_bold
-  color_blacklist=$fg_red_bold
+  color_skipped=$fg_gray_dark
+  color_whitelist=$fg_green_bright
+  color_blacklist=$fg_red_bright
   ;;
 blue)
-  bg=$bg_blue; init_colors
-  color_script=$fg_teal_bold
+  bg=$bg_blue
+  color_script=$fg_teal_bright
   color_patience=$fg_white
   color_watched=$fg_white
   color_skipped=$fg_gray
-  color_whitelist=$fg_green_bold
-  color_blacklist=$fg_red_bold
+  color_whitelist=$fg_green_bright
+  color_blacklist=$fg_red_bright
   ;;
 *) # else do not use any colors
-  bg=""; color_script=""; color_patience=""; color_watched=""
+  bg="\e[49m"; color_script=""; color_patience=""; color_watched=""
   color_skipped=""; color_whitelist=""; color_blacklist=""
   ;;
 esac
@@ -117,42 +111,75 @@ declare -a displayed_title_list # displayed title which respects $max_title_leng
 declare -a cached_picture_count # thread's cached total number of picture files
 declare -a has_new_pictures # thread is known to have new pictures
 
-timestamp_cleanup=$SECONDS
-
-if [ $max_title_length -lt 1 ]; then max_title_length=1; fi
+# crucial variable checks
+if [ ! -v download_directory ]; then
+  echo "Missing variable \"download_directory\"."
+  echo "Open the script and create the variable like this:"
+  echo "download_directory=/path/to/your/download/directory"
+  exit;
+fi
+if [ ! -v cores ]; then cores=1; fi
+if [ ! -v max_downloads ]; then max_downloads=20; fi
+if [ ! -v file_types ]; then file_types="jpg|png|gif|webm"; fi
+if [ ! -v http_string_text ]; then http_string_text=https; fi
+if [ ! -v http_string_images ]; then http_string_images=https; fi
+if [ ! -v allowed_filename_characters ]; then allowed_filename_characters="A-Za-z0-9_-"; fi
+if [ ! -v replacement_character ]; then replacement_character="_"; fi
+if [ ! -v loop_timer ]; then loop_timer=10; fi
+if [ ! -v max_title_length ] || [ $max_title_length -lt 1 ]; then max_title_length=62; fi
 
 function matchcut() {
-  # properly trims and displays thread titles when black/white list matches are displayed
-  if [ $((max_title_length-${#match}-1)) -gt 0 ]
-  then echo "$1" | cut -c1-$((max_title_length-${#match}-1))
+  #  properly trims and displays thread titles
+  #+ when blacklist/whitelist matches are displayed on the same line
+  remaining_space=$((max_title_length-${#match}-1))
+  if [ $remaining_space -gt 0 ]
+  then echo "$1" | cut -c1-$remaining_space
   else echo "..."
   fi
 }
+
+# activate selected background color
+echo -e "$bg"
+if [ ! $debug == "1" ]; then
+  if [ ! "$bg" == '\e[49m' ]; then clear; fi
+fi
+
+timestamp_cleanup=$SECONDS # for cleanup procedure at the end of the script
 
 # MAIN LOOP
 ###########
 while :
 do
 
-timestamp_boards=$SECONDS
+timestamp_boards=$SECONDS # for $loop_timer
 
 # BOARDS LOOP
 #############
 for board in $boards
 do
 
+# try to create download directory; exit on error
 download_dir=$download_directory/$board
 mkdir -p $download_dir
 if [ ! $? -eq 0 ]; then exit; fi
 
-if [ -v "blacklist_enabled_$board" ]; then blacklist_enabled=$(eval echo "\$blacklist_enabled_$board")
-else blacklist_enabled=$global_blacklist_enabled; fi
-if [ -v "blacklist_$board" ]; then blacklist=$(eval echo "\$blacklist_$board")
-else blacklist=$global_blacklist; fi
-if [ -v "whitelist_enabled_$board" ]; then whitelist_enabled=$(eval echo "\$whitelist_enabled_$board")
-else whitelist_enabled=$gobal_whitelist_enabled; fi
-if [ -v "whitelist_$board" ]; then whitelist=$(eval echo "\$whitelist_$board")
-else whitelist=$global_whitelist; fi
+# check for existing custom board lists
+if [ -v "blacklist_enabled_$board" ]
+then blacklist_enabled=$(eval echo "\$blacklist_enabled_$board")
+else blacklist_enabled=$global_blacklist_enabled
+fi
+if [ -v "blacklist_$board" ]
+then blacklist=$(eval echo "\$blacklist_$board")
+else blacklist=$global_blacklist
+fi
+if [ -v "whitelist_enabled_$board" ]
+then whitelist_enabled=$(eval echo "\$whitelist_enabled_$board")
+else whitelist_enabled=$gobal_whitelist_enabled
+fi
+if [ -v "whitelist_$board" ]
+then whitelist=$(eval echo "\$whitelist_$board")
+else whitelist=$global_whitelist
+fi
 
 # THREADS LOOP INITIALIZATION
 #############################
@@ -301,7 +328,7 @@ else
   cd $download_dir/$title_dir
 
   # search thread for images & download
-  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$file_types"\) | sort -u | sed 's/^/'$http_string_pictures':/g')
+  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$file_types"\) | sort -u | sed 's/^/'$http_string_images':/g')
   if [ ${#files} -gt 0 ]; then
     # create download queue, only new files
     queue=""
@@ -338,9 +365,9 @@ echo
 
 done # boards loop end
 
-if [ $refresh_timer -gt 0 ]; then
-  while (($SECONDS - $timestamp_boards < $refresh_timer)); do
-    echo -en "\033[1K\r$color_patience""Waiting $(($refresh_timer - $SECONDS + $timestamp_boards)) "
+if [ $loop_timer -gt 0 ]; then
+  while (($SECONDS - $timestamp_boards < $loop_timer)); do
+    echo -en "\033[1K\r$color_patience""Waiting $(($loop_timer - $SECONDS + $timestamp_boards)) "
     sleep 1
   done
   echo -en "\033[2K\r"
