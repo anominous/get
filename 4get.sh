@@ -30,20 +30,14 @@ download_directory=~/Downloads/4chan
 # case insensitive; supports pattern matching
 # https://www.gnu.org/software/bash/manual/html_node/Pattern-Matching.html
 # example: "g+(i)rls bo[iy]s something*between"
-global_whitelist_enabled=0
-global_whitelist=""
-# each board can have its own list: append the name of the board, e.g _a, _c, _m ...
-# board whitelists override the global whitelist
-#whitelist_enabled_a=0
-#whitelist_a=""
+whitelist=""
+# each board can have its own whitelist: append the name of the board, e.g _a, _c, _m ...
+whitelist_a=""
 
 # blacklist: "(But) Don't download these threads!"
-# blacklist takes precedence over whitelist
-global_blacklist_enabled=0
-global_blacklist=""
-# board-specific blacklists; they override the global blacklist
-#blacklist_enabled_a=0
-#blacklist_a=""
+blacklist=""
+# board-specific blacklists
+blacklist_a=""
 
 # color themes: you can choose one of the default color themes (black or blue)
 # or you can create one yourself in the source code below
@@ -164,22 +158,8 @@ mkdir -p $download_dir
 if [ ! $? -eq 0 ]; then exit; fi
 
 # check for existing custom board lists
-if [ -v "blacklist_enabled_$board" ]
-then blacklist_enabled=$(eval echo "\$blacklist_enabled_$board")
-else blacklist_enabled=$global_blacklist_enabled
-fi
-if [ -v "blacklist_$board" ]
-then blacklist=$(eval echo "\$blacklist_$board")
-else blacklist=$global_blacklist
-fi
-if [ -v "whitelist_enabled_$board" ]
-then whitelist_enabled=$(eval echo "\$whitelist_enabled_$board")
-else whitelist_enabled=$gobal_whitelist_enabled
-fi
-if [ -v "whitelist_$board" ]
-then whitelist=$(eval echo "\$whitelist_$board")
-else whitelist=$global_whitelist
-fi
+if [ -v "blacklist_$board" ]; then blacklist="$blacklist $(eval echo "\$blacklist_$board")"; fi
+if [ -v "whitelist_$board" ]; then whitelist="$whitelist $(eval echo "\$whitelist_$board")"; fi
 
 # THREADS LOOP INITIALIZATION
 #############################
@@ -265,7 +245,7 @@ fi
 title_lower_case=" ${title_list[$thread_number],,} " # need those spaces for matching
 skip=0
 # blacklist before whitelist
-if [ "$blacklist_enabled" == "1" ] && [ ${#blacklist} -gt 0 ]; then
+if [ ${#blacklist} -gt 0 ]; then
   set -f # prevent file globbing
   for match in ${blacklist,,}; do
     if [[ "$title_lower_case" == *$match* ]]; then
@@ -279,7 +259,7 @@ if [ "$blacklist_enabled" == "1" ] && [ ${#blacklist} -gt 0 ]; then
   if [ $skip -eq 1 ]; then continue; fi # start next thread iteration
 fi
 # whitelist
-if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]; then
+if [ ${#whitelist} -gt 0 ]; then
   skip=1
   set -f
   for match in ${whitelist,,}; do
@@ -299,7 +279,7 @@ fi
 
 # skip thread iteration if no new pictures
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
-  if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]
+  if [ ${#whitelist} -gt 0 ]
   then echo -e "$color_skipped[*] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
   else echo -e "$color_skipped[ ] $color_watched${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
   fi
@@ -308,7 +288,7 @@ fi
 
 # show user the thread is going to be updated
 echo -en "$color_whitelist[+] "
-if [ "$whitelist_enabled" == "1" ] && [ ${#whitelist} -gt 0 ]
+if [ ${#whitelist} -gt 0 ]
 then echo -en "$match "
 fi
 # download thread
