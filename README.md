@@ -1,7 +1,7 @@
 ####4chan image download script
 Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on many NAS devices.
 
-All you need is a Unix OS with Bash and cURL installed.
+All you need is a Unix OS with Bash and cURL installed (optional: ncurses).
 ```
 sudo apt-get install curl
 ```
@@ -25,16 +25,16 @@ Cancel it with CTRL-C.
 ######What do all those signs mean?
 ```
 Start of a line:
-[ ] The thread has been skipped
-[!] The thread has been blacklisted (the first word after this is the matching blacklist entry)
-[*] The thread is being watched, but no new images have been found
-[+] The thread is being watched, and has new images
-[i] The thread is being watched, but its image number is too low (option min_images)
+[x] Thread is not on your whitelist
+[!] Thread has been blacklisted (the first word after this is the matching blacklist entry)
+[ ] Thread does not have new images
+[*] Thread has new images and is currently being analyzed
+[+] Thread has new images, and image download has started
+[-] Thread has new images but they don't match your file types
+[i] Thread's image number is too low (option min_images)
 
 End of a line:
 [+number] Number of new images that are downloaded
-[-] The thread has new images, but either you already have them,
-    or they are of a type you don't want to download
 ```
 
 ####Advanced Options
@@ -82,16 +82,4 @@ blacklist_a="dragonball"
 Disabled:
 #whitelist="download this"
 #blacklist_a="dragonball"
-```
-
-####Tips
-While the multi board option is useful for your average boards, some boards are very active and get updates every few seconds. You might want to run them in separate terminals or background processes:
-```
-./4get.sh a &> /dev/null &
-./4get.sh b &> /dev/null &
-...
-```
-If you try this and don't know how to terminate them, use
-```
-killall 4get.sh
 ```
