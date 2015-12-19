@@ -107,6 +107,7 @@ if [ ! -v download_directory ]; then
   echo "download_directory=/path/to/your/download/directory"
   exit;
 fi
+if [ ! -v cores ]; then cores=1; fi
 if [ ! -v max_processes ]; then max_processes=20; fi
 if [ ! -v min_images ]; then min_images=0; fi
 if [ ! -v file_types ]; then file_types="jpg|png|gif|webm"; fi
