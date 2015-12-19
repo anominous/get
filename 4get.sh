@@ -40,13 +40,13 @@ color_theme=black
 
 # miscellaneous options
 cores=1 # number of your device's CPU cores
-max_downloads=20 # limits the number of background download processes; 0 means no limit (careful!)
+max_processes=20 # limits the number of background download processes; 0 means no limit (careful!)
 min_images=0 # minimum amount of images a thread must have; note that OP's image counts as zero
 hide_blacklisted_threads=0 # do not show blacklisted threads in future loops; verbose overrides this
-verbose=0 # shows loop numbers, disk usage, total amount of threads, and previously skipped threads
+verbose=0 # shows disk usage, total amount of threads, previously skipped/blacklisted threads
 allowed_filename_characters="A-Za-z0-9_-" # when creating directories, only use these characters
 replacement_character="_" # replace unallowed characters with this character
-loop_timer=10 # minimum time to wait between board loops; in seconds
+loop_timer=15 # minimum time to wait between board loops; in seconds
 max_title_length=62 # dispayed title length (in characters) - this does not change internal values
 
 #############################################################################
@@ -82,10 +82,10 @@ black)
   ;;
 blue)
   bg=$bg_blue
-  color_script=$fg_teal_bright
-  color_patience=$fg_white
+  color_script=$fg_white
+  color_patience=$fg_teal_bright
   color_watched=$fg_white
-  color_skipped=$fg_gray
+  color_skipped=$fg_teal
   color_whitelist=$fg_green_bright
   color_blacklist=$fg_red_bright
   ;;
@@ -109,8 +109,7 @@ if [ ! -v download_directory ]; then
   echo "download_directory=/path/to/your/download/directory"
   exit;
 fi
-if [ ! -v cores ]; then cores=1; fi
-if [ ! -v max_downloads ]; then max_downloads=20; fi
+if [ ! -v max_processes ]; then max_processes=20; fi
 if [ ! -v min_images ]; then min_images=0; fi
 if [ ! -v file_types ]; then file_types="jpg|png|gif|webm"; fi
 if [ ! -v http_string_text ]; then http_string_text=https; fi
@@ -133,7 +132,7 @@ function matchcut() {
 # activate selected background color
 echo -e "$bg"
 if [ ! $debug == "1" ]; then
-  if [ ! "$bg" == '\e[49m' ]; then clear; fi
+  if [ ! "$bg" == '\e[49m' ]; then clear 2> /dev/null; fi
 fi
 
 timestamp_cleanup=$SECONDS # for cleanup procedure at the end of the script
@@ -184,9 +183,9 @@ do
   if [[ "${#catalog}" -lt 1000 ]]; then
     echo -en "\r$color_patience""Could not find the board /$board/. Retrying ... "
     sleep 5
-    echo -en "\033[2K\r" # clear whole line
+    echo -en "\e[2K\r" # clear whole line
   else
-    echo -en "\033[2K\r$color_patience""Analyzing board index ... "
+    echo -en "\e[2K\r$color_patience""Analyzing board index "
     unset -v title_list
     unset -v displayed_title_list
     unset -v has_new_pictures
@@ -217,11 +216,11 @@ do
     done
     # catalog error protection
     if [ $i -gt 200 ]; then
-      echo -en "\033[2K\r$color_patience""Server buggy. Retrying ... "
+      echo -en "\e[2K\r$color_patience""Server buggy. Retrying ... "
       sleep 5
       continue
     else
-      echo -en "\033[2K\r"
+      echo -en "\e[2K\r"
       if [ $debug == "1" ]; then
         echo "Grabs: ${#grabs[@]}"
         echo "Subs: ${#subs[@]}"
@@ -239,16 +238,11 @@ done
 for thread_number in $thread_numbers
 do
 
-# show line numbers
-if [ $verbose == "1" ]; then
-  if [ $i -lt 100 ]; then echo -en "$color_script""0"; fi
-  if [ $i -lt 10 ]; then echo -en "$color_script""0"; fi
-  echo -en "$color_script$((i--)) $color_watched$thread_number "
-fi
-
 # skip current thread loop iteration if thread has been blocked previously
 if [[ ${blocked[$thread_number]} == 1 ]]; then
-  if [ $verbose == "1" ]; then echo -e "$color_skipped[ ] ${displayed_title_list[$thread_number]} $color_skipped[${cached_picture_count[$thread_number]}]"; fi
+  if [ $verbose == "1" ]; then
+    echo -e "$color_skipped[x] ${displayed_title_list[$thread_number]} $color_skipped[${cached_picture_count[$thread_number]}]"
+  fi
   continue # start next thread iteration
 fi
 
@@ -287,7 +281,7 @@ if [ ${#internal_whitelist} -gt 0 ]; then
   fi
   # ignore thread permanently if whitelist active, but thread not whitelisted
   if [ $match_found -eq 0 ]; then
-    echo -e "$color_skipped[ ] ${displayed_title_list[$thread_number]} $color_skipped[${cached_picture_count[$thread_number]}]"
+    echo -e "$color_skipped[x] ${displayed_title_list[$thread_number]} $color_skipped[${cached_picture_count[$thread_number]}]"
     blocked[$thread_number]=1
     continue # start next thread iteration
   fi
@@ -297,27 +291,23 @@ fi
 # skip thread iteration if no new pictures
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
   if [ ${#internal_whitelist} -gt 0 ]
-  then echo -e "$color_skipped[*] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
-  else echo -e "$color_skipped[*] $color_watched"${displayed_title_list[$thread_number]}" [${cached_picture_count[$thread_number]}]"
+  then echo -e "$color_skipped[ ] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
+  else echo -e "$color_skipped[ ] $color_watched"${displayed_title_list[$thread_number]}" [${cached_picture_count[$thread_number]}]"
   fi
   continue # start next thread iteration
 fi
 
-# show user the thread is going to be updated
-echo -en "$color_whitelist[+] "
-if [ ${#internal_whitelist} -gt 0 ]
-then echo -en "$match "
-fi
-# download thread
+# download thread in background process
+{
 thread=$(curl -A "$user_agent" -f -s $(echo "$thread_number" | sed 's/^/'$http_string_text':\/\/boards.4chan.org\/'$board'\/res\//g'))
 # do nothing more if thread is 404'd
-if [ ${#thread} -eq 0 ]
-then echo -e "$color_blacklist""404 Not Found"
+if [ ${#thread} -eq 0 ]; then
+  match="404 Not Found"
+  echo -e "$color_skipped[ ] $color_blacklist$match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
 # else try to save thread's images
 else
   # get real thread title from the downloaded file
   title=$(echo "$thread" | sed -e 's/^.*<meta name="description" content="//' -e 's/ - &quot;\/.*$//' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&\#039;/'/g" -e 's/&amp;\#44;/,/g' -e 's/&amp;/\&/g')
-  echo -en "$color_watched$(matchcut "$title") [${cached_picture_count[$thread_number]}] "
 
   # convert thread title into filesystem compatible format
   title_dir=$(echo "$title" | sed -e 's/[^'$allowed_filename_characters']/'$replacement_character'/g')
@@ -337,37 +327,48 @@ else
         ((number_of_new_files++))
       fi
     done
-    # download files in background processes
+    # download new files in background processes
     if [ $number_of_new_files -gt 0 ]; then
-      echo -e "$color_whitelist[+$number_of_new_files]"
-      echo "$queue" | xargs -n 1 -P $cores curl -A "$user_agent" -O -f -s &
-      # wait before the next thread iteration if too many downloads
-      if [ $max_downloads -gt 0 ]; then
-        download_count=$(ps -C curl --no-heading | wc -l)
-        until [ $download_count -lt $max_downloads ]; do
-          echo -en "\r$color_patience""Download limit reached [$download_count/$max_downloads]. Waiting ... "
-          sleep 1
-          download_count=$(ps -C curl --no-heading | wc -l)
-        done
-        echo -en "\033[2K\r"
+      if [ ${#internal_whitelist} -gt 0 ]
+      then echo -e "$color_whitelist[+] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
+      else echo -e "$color_whitelist[+] $color_watched"${displayed_title_list[$thread_number]}" [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
       fi
-    else echo -e "$color_whitelist[-]"
+      echo "$queue" | xargs -n 1 -P $cores curl -A "$user_agent" -O -f -s &
+    # no new files
+    else
+      if [ ${#internal_whitelist} -gt 0 ]
+      then echo -e "$color_whitelist[-] $match $color_watched$(matchcut "${displayed_title_list[$thread_number]}") [${cached_picture_count[$thread_number]}]"
+      else echo -e "$color_whitelist[-] $color_watched"${displayed_title_list[$thread_number]}" [${cached_picture_count[$thread_number]}]"
+      fi
     fi
-  else echo
   fi
 fi
+} &
 
 done # threads loop end
-echo
+
+wait # wait for all thread jobs to complete
+
+# wait before the next board iteration if too many download processes
+if [ $max_processes -gt 0 ]; then
+  download_count=$(ps -a | grep curl | wc -l)
+  until [ $download_count -lt $max_processes ]; do
+    echo -en "\e[2K\r$color_patience""Download processes: $download_count/$max_processes "
+    sleep 1
+    download_count=$(ps -a | grep curl | wc -l)
+  done
+fi
+
+echo -e "\e[2K\r"
 
 done # boards loop end
 
 if [ $loop_timer -gt 0 ]; then
   while (($SECONDS - $timestamp_boards < $loop_timer)); do
-    echo -en "\033[1K\r$color_patience""Waiting $(($loop_timer - $SECONDS + $timestamp_boards)) "
-    sleep 1
+    echo -en "\e[1K\r$color_patience""Waiting $(($loop_timer - $SECONDS + $timestamp_boards)) "
+    sleep 5
   done
-  echo -en "\033[2K\r"
+  echo -en "\e[2K\r"
 fi
 
 # clean up arrays periodically (24h)
