@@ -30,7 +30,7 @@ Start of a line:
 [ ] Thread does not have new images
 [*] Thread has new images and is currently being analyzed
 [+] Thread has new images, and image download has started
-[-] Thread has new images but they don't match your file types
+[-] Thread has new images but they don't match your file types (or you already have them)
 [i] Thread's image number is too low (option min_images)
 
 End of a line:
