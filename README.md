@@ -25,12 +25,12 @@ Cancel it with CTRL-C.
 ######What do all those signs mean?
 ```
 Start of a line:
-[x] Thread is not on your whitelist
+[ ] Thread does not have new images or is not on your whitelist
 [!] Thread has been blacklisted (the first word after this is the matching blacklist entry)
-[ ] Thread does not have new images
 [+] Thread has new images, and image download has started
-[-] Thread has new images but they don't match your file types (or you already have them)
-[i] Thread's image number is too low (option min_images)
+[-] Thread has new images, but they do not match your file types (or you already have them)
+[i] Thread has too little images (option min_images)
+[x] 404 Not Found
 
 End of a line:
 [+number] Number of new images that are downloaded
