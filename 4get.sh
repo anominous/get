@@ -322,7 +322,6 @@ else
     number_of_new_files=0
     for file in $files; do
       if [ ! -e $(basename $file) ]; then
-        touch $(basename $file) # make sure future loops don't download twice
         queue+="$file
         " # inserting a source code new line
         ((number_of_new_files++))
