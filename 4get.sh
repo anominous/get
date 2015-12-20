@@ -39,7 +39,7 @@ blacklist=""
 color_theme=black
 
 # miscellaneous options
-cores=1 # number of your device's CPU cores
+cores=4 # number of simultaneous download processes per thread
 max_processes=20 # limits the number of background download processes; 0 means no limit (careful!)
 min_images=0 # minimum amount of images a thread must have; note that OP's image counts as zero
 hide_blacklisted_threads=0 # do not show blacklisted threads in future loops; verbose overrides this
@@ -115,7 +115,7 @@ if [ ! -v http_string_text ]; then http_string_text=https; fi
 if [ ! -v http_string_images ]; then http_string_images=https; fi
 if [ ! -v allowed_filename_characters ]; then allowed_filename_characters="A-Za-z0-9_-"; fi
 if [ ! -v replacement_character ]; then replacement_character="_"; fi
-if [ ! -v loop_timer ]; then loop_timer=10; fi
+if [ ! -v loop_timer ]; then loop_timer=15; fi
 if [ ! -v max_title_length ] || [ $max_title_length -lt 1 ]; then max_title_length=62; fi
 
 function matchcut {
@@ -130,7 +130,7 @@ function matchcut {
 
 # activate selected background color
 echo -e "$bg"
-if [ ! $debug == "1" ]; then
+if [ ! "$debug" == "1" ]; then
   if [ ! "$bg" == '\e[49m' ]; then clear 2> /dev/null; fi
 fi
 
@@ -220,7 +220,7 @@ do
       continue
     else
       echo -en "\e[2K\r"
-      if [ $debug == "1" ]; then
+      if [ "$debug" == "1" ]; then
         echo "Grabs: ${#grabs[@]}"
         echo "Subs: ${#subs[@]}"
         echo "Teasers: ${#teasers[@]}"
@@ -322,18 +322,22 @@ else
     number_of_new_files=0
     for file in $files; do
       if [ ! -e $(basename $file) ]; then
+        touch $(basename $file) # make sure future loops don't download twice
         queue+="$file
         " # inserting a source code new line
         ((number_of_new_files++))
       fi
     done
-    # download new files in background processes
+    # text output first, then background download
     if [ $number_of_new_files -gt 0 ]; then
       if [ ${#internal_whitelist} -gt 0 ]
       then echo -e "$color_whitelist[+] $match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
       else echo -e "$color_whitelist[+] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
       fi
-      echo "$queue" | xargs -n 1 -P $cores curl -A "$user_agent" -O -f -s &
+      #download new files in background processes
+      {
+        echo "$queue" | xargs -n 1 -P $cores curl -A "$user_agent" -O -f -s
+      } &
     # no new files
     else
       if [ ${#internal_whitelist} -gt 0 ]
@@ -351,11 +355,11 @@ wait # wait for all thread jobs to complete
 
 # wait before the next board iteration if too many download processes
 if [ $max_processes -gt 0 ]; then
-  download_count=$(ps -a | grep curl | wc -l)
+  download_count=$(ps -fu $USER | grep curl | wc -l)
   until [ $download_count -lt $max_processes ]; do
     echo -en "\e[2K\r$color_patience""Process limit [$download_count/$max_processes] "
     sleep 5
-    download_count=$(ps -a | grep curl | wc -l)
+    download_count=$(ps | grep curl | wc -l)
   done
 fi
 
