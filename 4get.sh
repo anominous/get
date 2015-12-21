@@ -308,7 +308,7 @@ fi
 
 # wait if too many download processes
 if [ $max_downloads -gt 0 ]; then
-  while [ $(ps -fu $USER | grep curl.*4cdn | wc -l) -ge $max_downloads ]; do
+  while [ $(ps -fu $USER | grep -c curl.*4cdn) -ge $max_downloads ]; do
     sleep 1
   done
 fi
@@ -379,11 +379,11 @@ unset -v crawl_index
 
 # wait before the next board iteration if too many download processes
 if [ $max_downloads -gt 0 ]; then
-  download_count=$(ps -fu $USER | grep curl.*4cdn | wc -l)
+  download_count=$(ps -fu $USER | grep -c curl.*4cdn)
   until [ $download_count -lt $max_downloads ]; do
     echo -en "\e[2K\r$color_patience""Download limit [$download_count/$max_downloads] "
     sleep 5
-    download_count=$(ps -fu $USER | grep curl | wc -l)
+    download_count=$(ps -fu $USER | grep -c curl.*4cdn)
   done
 fi
 
