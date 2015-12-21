@@ -39,8 +39,9 @@ blacklist=""
 color_theme=black
 
 # miscellaneous options
-cores=4 # number of simultaneous download processes per thread
-max_processes=20 # limits the number of background download processes; 0 means no limit (careful!)
+downloads_per_thread=4 # number of simultaneous download processes per 4chan thread
+max_downloads=12 # limits total number of download processes; 0 means no limit (careful!)
+max_crawl_jobs=4 # maximum number of threads (with new images) being analyzed at the same time (careful!)
 min_images=0 # minimum amount of images a thread must have; note that OP's image counts as zero
 hide_blacklisted_threads=0 # do not show blacklisted threads in future loops; verbose overrides this
 verbose=1 # shows disk usage, total amount of threads, previously skipped/blacklisted threads
@@ -107,8 +108,9 @@ if [ ! -v download_directory ]; then
   echo "download_directory=/path/to/your/download/directory"
   exit;
 fi
-if [ ! -v cores ]; then cores=1; fi
-if [ ! -v max_processes ]; then max_processes=20; fi
+if [ ! -v downloads_per_thread ]; then downloads_per_thread=4; fi
+if [ ! -v max_downloads ]; then max_downloads=12; fi
+if [ ! -v max_crawl_jobs ]; then max_crawl_jobs=4; fi
 if [ ! -v min_images ]; then min_images=0; fi
 if [ ! -v file_types ]; then file_types="jpg|png|gif|webm"; fi
 if [ ! -v http_string_text ]; then http_string_text=https; fi
@@ -298,12 +300,28 @@ if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
   continue # start next thread iteration
 fi
 
-# download thread in background
+# wait if too many crawl jobs running
+if [ ${#crawl_jobs[@]} -ge $max_crawl_jobs ]; then
+  wait "${crawl_jobs[$crawl_index]}"
+  unset -v crawl_jobs[$((crawl_index++))]
+fi
+
+# wait if too many download processes
+if [ $max_downloads -gt 0 ]; then
+  while [ $(ps -fu $USER | grep curl.*4cdn | wc -l) -ge $max_downloads ]; do
+    sleep 1
+  done
+fi
+
+# download and analyze thread in background ("crawl job")
 {
 thread=$(curl -A "$user_agent" -f -s $(echo "$thread_number" | sed 's/^/'$http_string_text':\/\/boards.4chan.org\/'$board'\/res\//g'))
 # do nothing more if thread is 404'd
 if [ ${#thread} -eq 0 ]; then
-  echo -e "$color_blacklist[x] $color_back$match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
+  if [ ${#internal_whitelist} -gt 0 ]
+  then echo -e "$color_blacklist[x] $color_back$match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
+  else echo -e "$color_blacklist[x] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
+fi
 # else try to save thread's images
 else
   # get real thread title from the downloaded file
@@ -316,6 +334,7 @@ else
 
   # search thread for images and download them
   files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sort -u | sed 's/^/'$http_string_images':/g')
+  unset -v thread
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
     queue=""
@@ -335,7 +354,7 @@ else
       fi
       #download new files in background processes
       {
-        echo "$queue" | xargs -n 1 -P $cores curl -A "$user_agent" -O -f -s
+        echo "$queue" | xargs -n 1 -P $downloads_per_thread curl -A "$user_agent" -O -f -s
       } &
     # no new files
     else
@@ -348,17 +367,23 @@ else
 fi
 } &
 
+# save current crawl job's process ID in an array
+crawl_jobs+=("$!")
+
 done # threads loop end
 
-wait # wait for all thread jobs to complete
+# wait for all crawl jobs to complete, then clean up
+wait
+unset -v crawl_jobs
+unset -v crawl_index
 
 # wait before the next board iteration if too many download processes
-if [ $max_processes -gt 0 ]; then
-  download_count=$(ps -fu $USER | grep curl | wc -l)
-  until [ $download_count -lt $max_processes ]; do
-    echo -en "\e[2K\r$color_patience""Process limit [$download_count/$max_processes] "
+if [ $max_downloads -gt 0 ]; then
+  download_count=$(ps -fu $USER | grep curl.*4cdn | wc -l)
+  until [ $download_count -lt $max_downloads ]; do
+    echo -en "\e[2K\r$color_patience""Download limit [$download_count/$max_downloads] "
     sleep 5
-    download_count=$(ps | grep curl | wc -l)
+    download_count=$(ps -fu $USER | grep curl | wc -l)
   done
 fi
 
