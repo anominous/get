@@ -1,4 +1,4 @@
-####4chan image download script
+####Image Download Script
 Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on many NAS devices.
 
 All you need is a Unix OS with Bash and cURL installed (optional: ncurses).
@@ -22,7 +22,7 @@ When a board runs for the first time, it may take a while. But subsequent loops 
 
 Cancel it with CTRL-C.
 
-######What do all those signs mean?
+#####What do all those signs mean?
 ```
 Start of a line:
 [ ] Thread does not have new images or is not on your whitelist
@@ -36,7 +36,7 @@ End of a line:
 [+number] Number of new images that are downloaded
 ```
 
-####Advanced Options
+####Whitelist and Blacklist
 Say you only want to download wallpapers and artwork.
 Then just add "wallpapers artwork" to the whitelist:
 ```
