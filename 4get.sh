@@ -125,7 +125,7 @@ function matchcut {
   #+ when blacklist/whitelist matches are displayed on the same line
   remaining_space=$((max_title_length-${#match}-1))
   if [ $remaining_space -gt 0 ]
-  then displayed_title_list[$thread_number]=$(echo "${displayed_title_list[$thread_number]}" | cut -c1-$remaining_space)
+  then displayed_title_list[$thread_number]="${displayed_title_list[$thread_number]:0:$remaining_space}"
   else displayed_title_list[$thread_number]="..."
   fi
 }
@@ -204,7 +204,7 @@ do
       title_list[$thread_number]="$(echo "${subs[$i]} ${teasers[$i]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
       # make sure displayed titles are not longer than user specified length
       if [ ${#title_list[$thread_number]} -gt $max_title_length ]; then
-        displayed_title_list[$thread_number]="$(echo "${title_list[$thread_number]}" | cut -c1-$((max_title_length)))"
+        displayed_title_list[$thread_number]="${title_list[$thread_number]:0:$max_title_length}"
       else displayed_title_list[$thread_number]="${title_list[$thread_number]}"
       fi
       # check if a thread has new pictures
