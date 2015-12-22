@@ -12,11 +12,11 @@ If you run a virtual terminal, make sure you use Bash. The script uses Bash-only
 
 Then run the script like this:
 ```
-./4get.sh BOARD BOARD BOARD ...
+./get.sh BOARD BOARD BOARD ...
 ```
 Where BOARD is just the board's letters, e.g. a for /a/ (Anime & Manga).
 ```
-./4get.sh a b c ...
+./get.sh a b c ...
 ```
 When a board runs for the first time, it may take a while. But subsequent loops are generally much faster.
 
