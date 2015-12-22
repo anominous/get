@@ -1,14 +1,14 @@
 #!/bin/bash
 # 4chan image download script
 # downloads all images from one or multiple boards
-# latest version at https://github.com/anominous/4get
+# latest version at https://github.com/anominous/get
 
 # board(s) to download, e.g. boards="a b c" for /a/, /b/, and /c/
 # command line arguments override this
 boards=""
 
-# files are saved in the board's sub directory, e.g. ~Downloads/4chan/b
-# the directories are automatically created
+# files are saved in the board's sub directory, e.g. ~Downloads/4chan/a
+# all directories are automatically created
 download_directory=~/Downloads/4chan
 
 # file types to download, separated by "|" (if more than one type)
@@ -40,15 +40,15 @@ color_theme=black
 
 # miscellaneous options
 downloads_per_thread=4 # number of simultaneous download processes per 4chan thread
-max_threads=5 # maximum number of threads being downloaded from at the same time; 0 means no limit (careful!)
-max_crawl_jobs=10 # maximum number of threads (with new images) being analyzed at the same time (careful!)
-min_images=0 # minimum amount of images a thread must have; note that OP's image counts as zero
-hide_blacklisted_threads=0 # do not show blacklisted threads in future loops; verbose overrides this
+max_threads=5 # maximum number of threads being downloaded from; 0 means no limit (careful!)
+max_crawl_jobs=10 # maximum number of threads (with new images) being analyzed in parallel
+min_images=0 # minimum amount of images a thread must have; OP's image counts as zero
+hide_blacklisted_threads=0 # hide blacklisted threads in future loops; verbose overrides this
 verbose=1 # shows disk usage, total amount of threads, previously skipped/blacklisted threads
-allowed_filename_characters="A-Za-z0-9_-" # when creating directories, only use these characters
-replacement_character="_" # replace unallowed characters with this character
+allowed_filename_characters="A-Za-z0-9_-" # when creating directories, only use these characters ...
+replacement_character="_" # ... and replace other characters with this
 loop_timer=15 # minimum time to wait between board loops; in seconds
-max_title_length=62 # dispayed title length (in characters) - this does not change internal values
+max_title_length=62 # dispayed title length; in characters - this does not limit pattern matching
 
 #############################################################################
 # Main script starts below - Only touch this if you know what you're doing! #
