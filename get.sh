@@ -331,6 +331,8 @@ else
   unset -v thread
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
+    number_of_files=0
+    number_of_new_files=0
     for file in $files; do
       if [ ! -e $(basename $file) ]; then
         queue+="$file
