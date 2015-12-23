@@ -199,10 +199,13 @@ do
     teasers=($(echo "${grabs[*]}" | sed -e 's/^.*teaser":"//' -e 's/"}\+,.*$//' -e 's/$/ /')) # see above
     unset IFS
     i=0
+    shopt -s extglob # temporary enable extended pattern matching
     for thread_number in $thread_numbers; do
       # combine subs and teasers into titles, and remove whitespace
-      title_list[$thread_number]="$(echo "${subs[$i]} ${teasers[$i]}" | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//')"
-      # make sure displayed titles are not longer than user specified length
+      title_list[$thread_number]="${subs[$i]} ${teasers[$i]}"
+      title_list[$thread_number]="${title_list[$thread_number]##*( )}" # remove leading whitespace
+      title_list[$thread_number]="${title_list[$thread_number]%%*( )}" # remove trailing whitspace
+     # make sure displayed titles are not longer than user specified length
       if [ ${#title_list[$thread_number]} -gt $max_title_length ]; then
         displayed_title_list[$thread_number]="${title_list[$thread_number]:0:$max_title_length}"
       else displayed_title_list[$thread_number]="${title_list[$thread_number]}"
@@ -215,6 +218,7 @@ do
       fi
       ((i++)) # count total numbers of threads
     done
+    shopt -u extglob
     # catalog error protection
     if [ $i -gt 200 ]; then
       echo -en "\e[2K\r$color_patience""Server buggy. Retrying ... "
@@ -295,7 +299,7 @@ fi
 if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
   if [ ${#internal_whitelist} -gt 0 ]
   then echo -e "$color_back[ ] $match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
-  else echo -e "$color_back[ ] $color_front"${displayed_title_list[$thread_number]}" [${cached_picture_count[$thread_number]}]"
+  else echo -e "$color_back[ ] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
   fi
   continue # start next thread iteration
 fi
@@ -308,7 +312,7 @@ fi
 
 # download and analyze thread in background ("crawl job")
 {
-thread=$(curl -A "$user_agent" -f -s $(echo "$thread_number" | sed 's/^/'$http_string_text':\/\/boards.4chan.org\/'$board'\/res\//g'))
+thread=$(curl -A "$user_agent" -f -s "$http_string_text://boards.4chan.org/$board/res/$thread_number")
 # do nothing more if thread is 404'd
 if [ ${#thread} -eq 0 ]; then
   if [ ${#internal_whitelist} -gt 0 ]
@@ -317,33 +321,29 @@ if [ ${#thread} -eq 0 ]; then
 fi
 # else try to save thread's images
 else
-  # get real thread title from the downloaded file
-  title=$(echo "$thread" | sed -e 's/^.*<meta name="description" content="//' -e 's/ - &quot;\/.*$//' -e 's/&amp;/&/g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#039;/'/g" -e 's/&#44;/,/g')
-
-  # convert thread title into filesystem compatible format
-  title_dir=$(echo "$title" | sed -e 's/[^'"$allowed_filename_characters"']/'"$replacement_character"'/g')
-  mkdir -p "$download_dir/$title_dir"
-  cd "$download_dir/$title_dir"
+  # get real thread title from the downloaded file and convert into filesystem compatible format
+  title=$(echo "$thread" | sed -e 's/^.*<meta name="description" content="//' -e 's/ - &quot;\/.*$//' -e 's/&amp;/&/g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#039;/'/g" -e 's/&#44;/,/g' -e 's/[^'"$allowed_filename_characters"']/'"$replacement_character"'/g')
+  mkdir -p "$download_dir/$title"
+  cd "$download_dir/$title"
 
   # search thread for images and download them
-  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sort -u | sed 's/^/'$http_string_images':/g')
+  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sed 's/^/'$http_string_images':/g')
   unset -v thread
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
-    queue=""
-    number_of_new_files=0
     for file in $files; do
       if [ ! -e $(basename $file) ]; then
         queue+="$file
         " # inserting a source code new line
         ((number_of_new_files++))
       fi
+      ((number_of_files++))
     done
     # text output first, then background download
     if [ $number_of_new_files -gt 0 ]; then
       if [ ${#internal_whitelist} -gt 0 ]
-      then echo -e "$color_whitelist[+] $match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
-      else echo -e "$color_whitelist[+] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
+      then echo -e "$color_whitelist[+] $match $color_front${displayed_title_list[$thread_number]} [${#number_of_files}] $color_whitelist[+$number_of_new_files]"
+      else echo -e "$color_whitelist[+] $color_front${displayed_title_list[$thread_number]} [${#number_of_files}] $color_whitelist[+$number_of_new_files]"
       fi
       # wait if too many processes
       if [ $max_threads -gt 0 ]; then
@@ -356,8 +356,8 @@ else
     # no new files
     else
       if [ ${#internal_whitelist} -gt 0 ]
-      then echo -e "$color_back[-] $match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
-      else echo -e "$color_back[-] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
+      then echo -e "$color_back[-] $match $color_front${displayed_title_list[$thread_number]} [${#number_of_files}]"
+      else echo -e "$color_back[-] $color_front${displayed_title_list[$thread_number]} [${#number_of_files}]"
       fi
     fi
   fi
