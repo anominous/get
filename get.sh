@@ -48,7 +48,7 @@ verbose=1 # shows disk usage, total amount of threads, previously skipped/blackl
 allowed_filename_characters="A-Za-z0-9_-" # when creating directories, only use these characters ...
 replacement_character="_" # ... and replace other characters with this
 loop_timer=15 # minimum time to wait between board loops; in seconds
-max_title_length=62 # dispayed title length; in characters - this does not limit pattern matching
+max_title_length=62 # displayed title length; in characters - this does not limit pattern matching
 
 #############################################################################
 # Main script starts below - Only touch this if you know what you're doing! #
@@ -204,7 +204,7 @@ do
       # combine subs and teasers into titles, and remove whitespace
       title_list[$thread_number]="${subs[$i]} ${teasers[$i]}"
       title_list[$thread_number]="${title_list[$thread_number]##*( )}" # remove leading whitespace
-      title_list[$thread_number]="${title_list[$thread_number]%%*( )}" # remove trailing whitspace
+      title_list[$thread_number]="${title_list[$thread_number]%%*( )}" # remove trailing whitespace
      # make sure displayed titles are not longer than user specified length
       if [ ${#title_list[$thread_number]} -gt $max_title_length ]; then
         displayed_title_list[$thread_number]="${title_list[$thread_number]:0:$max_title_length}"
