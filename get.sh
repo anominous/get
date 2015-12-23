@@ -193,19 +193,20 @@ do
     IFS=$'\n' # necessary to create lines for sed
     # grab relevant catalog pieces, cut & split them; replace HTML entities
     grabs=($(echo "$catalog" | grep -Po '[0-9][0-9]*?\":.*?\"teaser\".*?\},' | sed -e 's/&amp;/&/g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#039;/'/g" -e 's/&#44;/,/g' -e 's/\\//g'))
-    thread_numbers=${grabs[*]/\":*/}
+    thread_numbers="${grabs[*]/\":*/}"
     current_picture_count=($(echo "${grabs[*]}" | sed -e 's/^.*"i"://' -e 's/,.*$//'))
-    subs=($(echo "${grabs[*]}" | sed -e 's/^.*sub":"//' -e 's/","teaser.*$//' -e 's/^/ /')) # last sed: insert a space character in case the sub is emtpy
-    teasers=($(echo "${grabs[*]}" | sed -e 's/^.*teaser":"//' -e 's/"}\+,.*$//' -e 's/$/ /')) # see above
+    subs_and_teasers=($(echo "${grabs[*]}" | sed -e 's/^.*sub":"//' -e 's/"}\+,.*$//'))
     unset IFS
     i=0
-    shopt -s extglob # temporary enable extended pattern matching
     for thread_number in $thread_numbers; do
-      # combine subs and teasers into titles, and remove whitespace
-      title_list[$thread_number]="${subs[$i]} ${teasers[$i]}"
-      title_list[$thread_number]="${title_list[$thread_number]##*( )}" # remove leading whitespace
-      title_list[$thread_number]="${title_list[$thread_number]%%*( )}" # remove trailing whitespace
-     # make sure displayed titles are not longer than user specified length
+      # combine sub and teaser into title
+      sub="${subs_and_teasers[$i]/\",\"teaser*}"
+      teaser="${subs_and_teasers[$i]/*\",\"teaser\":\"}"
+      if [ "$sub" == "" ]; then title_list[$thread_number]="$teaser"
+      elif [ "$teaser" == "" ]; then title_list[$thread_number]="$sub"
+      else title_list[$thread_number]="$sub $teaser"
+      fi
+      # make sure displayed titles are not longer than user specified length
       if [ ${#title_list[$thread_number]} -gt $max_title_length ]; then
         displayed_title_list[$thread_number]="${title_list[$thread_number]:0:$max_title_length}"
       else displayed_title_list[$thread_number]="${title_list[$thread_number]}"
@@ -218,32 +219,30 @@ do
       fi
       ((i++)) # count total numbers of threads
     done
-    shopt -u extglob
     # catalog error protection
     if [ $i -gt 200 ]; then
       echo -en "\e[2K\r$color_patience""Server buggy. Retrying ... "
       sleep 5
       continue
-    else
-      echo -en "\e[2K\r"
-      if [ "$debug" == "1" ]; then
-        echo "Grabs: ${#grabs[@]}"
-        echo "Subs: ${#subs[@]}"
-        echo "Teasers: ${#teasers[@]}"
-      fi
-      if [ $verbose == "1" ]; then echo -e "$color_front""Found $i threads"; fi
-      echo
-      break
-    fi
+    elif [ $verbose == "1" ]; then echo -e "\e[2K\r$color_front""Found $i threads"; fi
+    break
   fi
 done
+
+# next board if no threads
+if [ $i == 0 ]; then 
+  echo -e "\e[2K\r$color_front""Board empty"
+  continue
+fi;
+
+echo
 
 # THREADS LOOP
 ##############
 for thread_number in $thread_numbers
 do
 
-# skip current thread loop iteration if thread has been blocked previously
+# skip current loop iteration if thread has been blocked
 if [[ ${blocked[$thread_number]} == 1 ]]; then
   if [ $verbose == "1" ]; then
     echo -e "$color_back[ ] ${displayed_title_list[$thread_number]} $color_back[${cached_picture_count[$thread_number]}]"
@@ -326,7 +325,7 @@ else
   mkdir -p "$download_dir/$title"
   cd "$download_dir/$title"
   # search thread for images and download them
-  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sed 's/^/'$http_string_images':/g')
+  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sort -u |sed 's/^/'$http_string_images':/g')
   unset -v thread
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
@@ -372,8 +371,7 @@ done # threads loop end
 wait
 unset -v crawl_jobs
 unset -v crawl_index
-
-echo -e "\e[2K\r"
+echo
 
 done # boards loop end
 
