@@ -331,8 +331,8 @@ else
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
     number_of_new_files=0
-    for file in "$files"; do
-      if [ ! -e $(basename "$file") ]; then
+    for file in $files; do
+      if [ ! -e $(basename $file) ]; then
         queue+="$file
         " # inserting a source code new line
         ((number_of_new_files++))
