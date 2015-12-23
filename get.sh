@@ -235,7 +235,7 @@ if [ $i == 0 ]; then
   continue
 fi;
 
-echo
+echo -e "\e[2K\r"
 
 # THREADS LOOP
 ##############
