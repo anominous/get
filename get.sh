@@ -193,7 +193,7 @@ do
     IFS=$'\n' # necessary to create lines for sed
     # grab relevant catalog pieces, cut & split them; replace HTML entities
     grabs=($(echo "$catalog" | grep -Po '[0-9][0-9]*?\":.*?\"teaser\".*?\},' | sed -e 's/&amp;/&/g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#039;/'/g" -e 's/&#44;/,/g' -e 's/\\//g'))
-    thread_numbers=$(echo "${grabs[*]}" | sed 's/":.*$//')
+    thread_numbers=${grabs[*]/\":*/}
     current_picture_count=($(echo "${grabs[*]}" | sed -e 's/^.*"i"://' -e 's/,.*$//'))
     subs=($(echo "${grabs[*]}" | sed -e 's/^.*sub":"//' -e 's/","teaser.*$//' -e 's/^/ /')) # last sed: insert a space character in case the sub is emtpy
     teasers=($(echo "${grabs[*]}" | sed -e 's/^.*teaser":"//' -e 's/"}\+,.*$//' -e 's/$/ /')) # see above
@@ -325,27 +325,24 @@ else
   title=$(echo "$thread" | sed -e 's/^.*<meta name="description" content="//' -e 's/ - &quot;\/.*$//' -e 's/&amp;/&/g' -e 's/&gt;/>/g' -e 's/&quot;/"/g' -e "s/&#039;/'/g" -e 's/&#44;/,/g' -e 's/[^'"$allowed_filename_characters"']/'"$replacement_character"'/g')
   mkdir -p "$download_dir/$title"
   cd "$download_dir/$title"
-
   # search thread for images and download them
   files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sed 's/^/'$http_string_images':/g')
   unset -v thread
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
-    number_of_files=0
     number_of_new_files=0
-    for file in $files; do
-      if [ ! -e $(basename $file) ]; then
+    for file in "$files"; do
+      if [ ! -e $(basename "$file") ]; then
         queue+="$file
         " # inserting a source code new line
         ((number_of_new_files++))
       fi
-      ((number_of_files++))
     done
     # text output first, then background download
     if [ $number_of_new_files -gt 0 ]; then
       if [ ${#internal_whitelist} -gt 0 ]
-      then echo -e "$color_whitelist[+] $match $color_front${displayed_title_list[$thread_number]} [${#number_of_files}] $color_whitelist[+$number_of_new_files]"
-      else echo -e "$color_whitelist[+] $color_front${displayed_title_list[$thread_number]} [${#number_of_files}] $color_whitelist[+$number_of_new_files]"
+      then echo -e "$color_whitelist[+] $match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
+      else echo -e "$color_whitelist[+] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}] $color_whitelist[+$number_of_new_files]"
       fi
       # wait if too many processes
       if [ $max_threads -gt 0 ]; then
@@ -358,8 +355,8 @@ else
     # no new files
     else
       if [ ${#internal_whitelist} -gt 0 ]
-      then echo -e "$color_back[-] $match $color_front${displayed_title_list[$thread_number]} [${#number_of_files}]"
-      else echo -e "$color_back[-] $color_front${displayed_title_list[$thread_number]} [${#number_of_files}]"
+      then echo -e "$color_back[-] $match $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
+      else echo -e "$color_back[-] $color_front${displayed_title_list[$thread_number]} [${cached_picture_count[$thread_number]}]"
       fi
     fi
   fi
