@@ -174,6 +174,7 @@ fi
 
 # THREADS LOOP INITIALIZATION
 #############################
+crawl_index=0 # needs to be set here for integer comparisons
 echo -e "$color_front""Target Board: /$board/"
 # show size of current board's download directory
 if [ $verbose == "1" ]; then echo -e "$color_front$(du -sh $download_dir | cut -f1) in $download_dir"; fi
@@ -230,7 +231,7 @@ do
 done
 
 # next board if no threads
-if [ $i == 0 ]; then 
+if [ $i == 0 ]; then
   echo -e "\e[2K\r$color_front""Board empty"
   continue
 fi;
@@ -304,13 +305,24 @@ if [ ! "${has_new_pictures[$thread_number]}" == "1" ]; then
 fi
 
 # wait if too many crawl jobs running
-if [ ${#crawl_jobs[@]} -ge $max_crawl_jobs ]; then
-  wait "${crawl_jobs[$crawl_index]}"
-  unset -v crawl_jobs[$((crawl_index++))]
+if [ $crawl_index -ge $max_crawl_jobs ]; then
+  while :
+  do
+    for j in $crawl_jobs; do
+      if ! kill -0 $j &> /dev/null; then
+        ((crawl_index--))
+        crawl_jobs=${crawl_jobs/$j /}
+      fi
+    done
+    if [ $crawl_index -lt $max_crawl_jobs ]
+    then break
+    else sleep 1
+    fi
+  done
 fi
 
 # download and analyze thread in background ("crawl job")
-{
+(
 thread=$(curl -A "$user_agent" -f -s "$http_string_text://boards.4chan.org/$board/res/$thread_number")
 # do nothing more if thread is 404'd
 if [ ${#thread} -eq 0 ]; then
@@ -325,7 +337,7 @@ else
   mkdir -p "$download_dir/$title"
   cd "$download_dir/$title"
   # search thread for images and download them
-  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | sort -u |sed 's/^/'$http_string_images':/g')
+  files=$(echo "$thread" | grep -Po //i\.4cdn\.org/$board/[0-9][0-9]*?\.\("$internal_file_types"\) | uniq |sed 's/^/'$http_string_images':/g')
   unset -v thread
   if [ ${#files} -gt 0 ]; then
     # create download queue; only new files that don't yet exist in the download folder
@@ -350,7 +362,7 @@ else
         done
       fi
       #download new files in background processes
-      echo "$queue" | xargs -n 1 -P $downloads_per_thread -I {} bash -c "if [ ! -e $(basename {}) ]; then curl -A \"$user_agent\" -O -f -s {}; fi" &
+      ( echo "$queue" | xargs -n 1 -P $downloads_per_thread -I {} bash -c "if [ ! -e $(basename {}) ]; then curl -A \"$user_agent\" -O -f -s {}; fi" ) &
     # no new files
     else
       if [ ${#internal_whitelist} -gt 0 ]
@@ -360,17 +372,17 @@ else
     fi
   fi
 fi
-} &
+) &
 
 # save current crawl job's process ID in an array
-crawl_jobs+=("$!")
+crawl_jobs+="$! "
+((crawl_index++))
 
 done # threads loop end
 
 # wait for all crawl jobs to complete, then clean up
 wait
 unset -v crawl_jobs
-unset -v crawl_index
 echo
 
 done # boards loop end
