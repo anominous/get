@@ -1,7 +1,7 @@
 ####Image Download Script
-Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on many NAS devices.
+Download all images from multiple boards. Supports blacklisting and whitelisting. This script works great on a Raspberry Pi 2, and it should also run on many NAS devices. Default settings need around 100 MB of RAM.
 
-All you need is a Unix OS with Bash and cURL installed (optional: ncurses).
+You need a Unix OS with Bash and cURL installed (optional: ncurses).
 ```
 sudo apt-get install curl
 ```
